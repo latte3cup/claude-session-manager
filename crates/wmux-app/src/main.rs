@@ -32,6 +32,55 @@ struct PtyExitPayload {
     surface_id: String,
 }
 
+#[derive(Clone, Serialize)]
+struct PaneInfo {
+    surface_id: String,
+    x: u16,
+    y: u16,
+    width: u16,
+    height: u16,
+    is_focused: bool,
+}
+
+#[derive(Clone, Serialize)]
+struct LayoutResult {
+    panes: Vec<PaneInfo>,
+    is_zoomed: bool,
+    shell: String,
+}
+
+#[derive(Clone, Serialize)]
+struct TabInfo {
+    name: String,
+    is_active: bool,
+}
+
+#[derive(Clone, Serialize)]
+struct TabInfoResult {
+    tabs: Vec<TabInfo>,
+    active_index: usize,
+}
+
+#[derive(Clone, Serialize)]
+struct SplitResult {
+    surface_id: String,
+}
+
+#[derive(Clone, Serialize)]
+struct CreateResult {
+    workspace_id: String,
+}
+
+#[derive(Clone, Serialize)]
+struct CloseResult {
+    should_quit: bool,
+}
+
+#[derive(Clone, Serialize)]
+struct FocusChangedPayload {
+    surface_id: String,
+}
+
 // ── Tauri Commands ──
 
 #[tauri::command]
@@ -68,6 +117,206 @@ async fn resize_terminal(
     if let Some(surface) = core.surfaces.get_mut(&id) {
         surface.resize(cols, rows);
     }
+    Ok(())
+}
+
+#[tauri::command]
+async fn split_pane(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+    direction: String,
+) -> Result<SplitResult, String> {
+    let mut core = state.core.lock().await;
+    let dir = match direction.as_str() {
+        "horizontal" => wmux_core::model::split_tree::Direction::Horizontal,
+        _ => wmux_core::model::split_tree::Direction::Vertical,
+    };
+    let (cols, rows) = core.terminal_size;
+    let result = core.split_surface(dir, &state.pty_tx, &state.exit_tx, cols / 2, rows / 2)
+        .map_err(|e| e.to_string())?;
+    match result {
+        Some(id) => {
+            let _ = app_handle.emit("layout-changed", ());
+            let _ = app_handle.emit("focus-changed", FocusChangedPayload { surface_id: id.to_string() });
+            Ok(SplitResult { surface_id: id.to_string() })
+        }
+        None => Err("No focused surface to split".to_string()),
+    }
+}
+
+#[tauri::command]
+async fn close_pane(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+    surface_id: String,
+) -> Result<CloseResult, String> {
+    let mut core = state.core.lock().await;
+    let id = Uuid::parse_str(&surface_id).map_err(|e| e.to_string())?;
+    let should_quit = core.close_surface(id);
+    let _ = app_handle.emit("layout-changed", ());
+    if let Some(focused) = core.focused_surface {
+        let _ = app_handle.emit("focus-changed", FocusChangedPayload { surface_id: focused.to_string() });
+    }
+    Ok(CloseResult { should_quit })
+}
+
+#[tauri::command]
+async fn focus_pane(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+    surface_id: String,
+) -> Result<(), String> {
+    let mut core = state.core.lock().await;
+    let id = Uuid::parse_str(&surface_id).map_err(|e| e.to_string())?;
+    core.focus_surface(id);
+    if let Some(focused) = core.focused_surface {
+        let _ = app_handle.emit("focus-changed", FocusChangedPayload { surface_id: focused.to_string() });
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn focus_direction(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+    direction: String,
+) -> Result<(), String> {
+    let mut core = state.core.lock().await;
+    let dir = match direction.as_str() {
+        "up" => wmux_core::FocusDirection::Up,
+        "down" => wmux_core::FocusDirection::Down,
+        "left" => wmux_core::FocusDirection::Left,
+        "right" => wmux_core::FocusDirection::Right,
+        _ => return Err(format!("Invalid direction: {}", direction)),
+    };
+    core.focus_direction(dir);
+    if let Some(focused) = core.focused_surface {
+        let _ = app_handle.emit("focus-changed", FocusChangedPayload { surface_id: focused.to_string() });
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn create_workspace(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+    name: Option<String>,
+) -> Result<CreateResult, String> {
+    let mut core = state.core.lock().await;
+    let (cols, rows) = core.terminal_size;
+    let ws_id = core.create_workspace(name, &state.pty_tx, &state.exit_tx, cols, rows)
+        .map_err(|e| e.to_string())?;
+    let _ = app_handle.emit("layout-changed", ());
+    Ok(CreateResult { workspace_id: ws_id.to_string() })
+}
+
+#[tauri::command]
+async fn switch_workspace(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+    index: usize,
+) -> Result<(), String> {
+    let mut core = state.core.lock().await;
+    core.switch_workspace(index);
+    let _ = app_handle.emit("layout-changed", ());
+    if let Some(focused) = core.focused_surface {
+        let _ = app_handle.emit("focus-changed", FocusChangedPayload { surface_id: focused.to_string() });
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn next_workspace(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<(), String> {
+    let mut core = state.core.lock().await;
+    core.next_workspace();
+    let _ = app_handle.emit("layout-changed", ());
+    if let Some(focused) = core.focused_surface {
+        let _ = app_handle.emit("focus-changed", FocusChangedPayload { surface_id: focused.to_string() });
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn prev_workspace(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<(), String> {
+    let mut core = state.core.lock().await;
+    core.prev_workspace();
+    let _ = app_handle.emit("layout-changed", ());
+    if let Some(focused) = core.focused_surface {
+        let _ = app_handle.emit("focus-changed", FocusChangedPayload { surface_id: focused.to_string() });
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_layout(
+    state: tauri::State<'_, Arc<AppState>>,
+    width: u16,
+    height: u16,
+) -> Result<LayoutResult, String> {
+    let mut core = state.core.lock().await;
+
+    // Update terminal_size so new splits use correct dimensions
+    core.set_terminal_size(width, height);
+
+    let panes = if let Some(zoom_id) = core.zoom_surface {
+        // Zoomed: single pane fills entire area
+        vec![PaneInfo {
+            surface_id: zoom_id.to_string(),
+            x: 0, y: 0, width, height,
+            is_focused: true,
+        }]
+    } else if let Some(ws) = core.active_workspace_ref() {
+        ws.split_tree.layout(0, 0, width, height)
+            .iter()
+            .map(|l| PaneInfo {
+                surface_id: l.surface_id.to_string(),
+                x: l.x,
+                y: l.y,
+                width: l.width,
+                height: l.height,
+                is_focused: core.focused_surface == Some(l.surface_id),
+            })
+            .collect()
+    } else {
+        vec![]
+    };
+
+    let shell_name = core.shell.rsplit(['\\', '/']).next().unwrap_or(&core.shell).to_string();
+
+    Ok(LayoutResult {
+        panes,
+        is_zoomed: core.zoom_surface.is_some(),
+        shell: shell_name,
+    })
+}
+
+#[tauri::command]
+async fn get_tab_info(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<TabInfoResult, String> {
+    let core = state.core.lock().await;
+    let tabs: Vec<TabInfo> = core.tab_info()
+        .into_iter()
+        .map(|(name, is_active)| TabInfo { name, is_active })
+        .collect();
+    let active_index = core.active_workspace;
+    Ok(TabInfoResult { tabs, active_index })
+}
+
+#[tauri::command]
+async fn toggle_zoom(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<(), String> {
+    let mut core = state.core.lock().await;
+    core.toggle_zoom();
+    let _ = app_handle.emit("layout-changed", ());
     Ok(())
 }
 
@@ -133,6 +382,17 @@ fn main() {
             get_surface_id,
             send_input,
             resize_terminal,
+            split_pane,
+            close_pane,
+            focus_pane,
+            focus_direction,
+            create_workspace,
+            switch_workspace,
+            next_workspace,
+            prev_workspace,
+            get_layout,
+            get_tab_info,
+            toggle_zoom,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

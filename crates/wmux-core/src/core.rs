@@ -219,6 +219,13 @@ impl WmuxCore {
         }
     }
 
+    /// Set focus to a specific surface by ID (validates it exists)
+    pub fn focus_surface(&mut self, surface_id: Uuid) {
+        if self.surfaces.contains_key(&surface_id) {
+            self.focused_surface = Some(surface_id);
+        }
+    }
+
     pub fn toggle_zoom(&mut self) {
         if self.zoom_surface.is_some() {
             self.zoom_surface = None;
