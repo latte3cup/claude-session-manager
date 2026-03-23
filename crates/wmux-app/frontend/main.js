@@ -1,117 +1,54 @@
-import { Terminal } from './vendor/xterm.mjs';
-import { FitAddon } from './vendor/addon-fit.mjs';
-import { WebglAddon } from './vendor/addon-webgl.mjs';
+import * as tm from './terminal-manager.js';
+import { attachKeybindings } from './keybindings.js';
+import { refreshLayout, setupResizeHandler } from './layout.js';
+import { setupSidebar, refreshTabs, getActiveIndex } from './sidebar.js';
 
-let term;
-let fitAddon;
-let surfaceId = null;
+const { invoke } = window.__TAURI__.core;
+const { listen } = window.__TAURI__.event;
 
 async function init() {
-  term = new Terminal({
-    cursorBlink: true,
-    fontFamily: "'Cascadia Code', 'Consolas', 'Courier New', monospace",
-    fontSize: 14,
-    theme: {
-      background: '#09090b',
-      foreground: '#fafafa',
-      cursor: '#a78bfa',
-      selectionBackground: 'rgba(167, 139, 250, 0.3)',
-      black: '#09090b',
-      red: '#f87171',
-      green: '#4ade80',
-      yellow: '#fbbf24',
-      blue: '#60a5fa',
-      magenta: '#a78bfa',
-      cyan: '#22d3ee',
-      white: '#fafafa',
-      brightBlack: '#71717a',
-      brightRed: '#fca5a5',
-      brightGreen: '#86efac',
-      brightYellow: '#fde68a',
-      brightBlue: '#93c5fd',
-      brightMagenta: '#c4b5fd',
-      brightCyan: '#67e8f9',
-      brightWhite: '#ffffff',
-    }
+  // Forward terminal input to backend
+  tm.setOnInput((surfaceId, data) => {
+    invoke('send_input', { surfaceId, data });
   });
 
-  fitAddon = new FitAddon();
-  term.loadAddon(fitAddon);
-
-  try {
-    const webglAddon = new WebglAddon();
-    term.loadAddon(webglAddon);
-  } catch (e) {
-    console.warn('WebGL addon not available, using canvas renderer');
-  }
-
-  const container = document.getElementById('terminal-container');
-  term.open(container);
-  fitAddon.fit();
-
-  // Get the surface ID from backend
-  try {
-    surfaceId = await window.__TAURI__.core.invoke('get_surface_id');
-  } catch (e) {
-    term.write('Error: Could not connect to backend: ' + e + '\r\n');
-    return;
-  }
-
-  // Send initial size to backend
-  await sendResize();
-
-  // Handle user input → send to backend
-  term.onData((data) => {
-    if (surfaceId) {
-      window.__TAURI__.core.invoke('send_input', {
-        surfaceId: surfaceId,
-        data: data,
-      });
-    }
+  // Attach keybindings when new terminals are created
+  tm.setOnNewTerminal((surfaceId, term) => {
+    attachKeybindings(term, () => tm.getFocusedId(), getActiveIndex);
   });
 
-  // Handle terminal resize
-  term.onResize(({ cols, rows }) => {
-    if (surfaceId) {
-      window.__TAURI__.core.invoke('resize_terminal', {
-        surfaceId: surfaceId,
-        cols: cols,
-        rows: rows,
-      });
-    }
-  });
+  // Set up sidebar buttons
+  setupSidebar();
 
-  // Listen for PTY output from backend
-  window.__TAURI__.event.listen('pty-output', (event) => {
+  // Set up window resize debouncing
+  setupResizeHandler();
+
+  // PTY output → route to correct terminal
+  listen('pty-output', (event) => {
     const { surface_id, data } = event.payload;
-    if (surface_id === surfaceId) {
-      const bytes = Uint8Array.from(atob(data), c => c.charCodeAt(0));
-      term.write(bytes);
-    }
+    const bytes = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+    tm.writeOutput(surface_id, bytes);
   });
 
-  // Listen for PTY exit
-  window.__TAURI__.event.listen('pty-exit', (event) => {
+  // PTY exit
+  listen('pty-exit', (event) => {
     const { surface_id } = event.payload;
-    if (surface_id === surfaceId) {
-      term.write('\r\n\x1b[90m[Process exited]\x1b[0m\r\n');
-    }
+    tm.writeOutput(surface_id, new TextEncoder().encode('\r\n\x1b[90m[Process exited]\x1b[0m\r\n'));
   });
 
-  // Handle window resize
-  window.addEventListener('resize', () => {
-    fitAddon.fit();
+  // Layout/focus changes → refresh UI
+  listen('layout-changed', async () => {
+    await refreshTabs();
+    await refreshLayout();
   });
-}
 
-async function sendResize() {
-  if (surfaceId && term) {
-    await window.__TAURI__.core.invoke('resize_terminal', {
-      surfaceId: surfaceId,
-      cols: term.cols,
-      rows: term.rows,
-    });
-  }
+  listen('focus-changed', (event) => {
+    tm.setFocused(event.payload.surface_id);
+  });
+
+  // Initial load
+  await refreshTabs();
+  await refreshLayout();
 }
 
 if (document.readyState === 'loading') {
