@@ -1,4 +1,4 @@
-use wmux::model::split_tree::{SplitNode, Direction};
+use wmux_core::model::split_tree::{SplitNode, Direction};
 use uuid::Uuid;
 
 #[test]

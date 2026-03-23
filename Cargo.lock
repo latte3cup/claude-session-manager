@@ -1343,11 +1343,19 @@ dependencies = [
  "tokio",
  "uuid",
  "vt100",
+ "wmux-core",
 ]
 
 [[package]]
 name = "wmux-core"
 version = "0.1.0"
+dependencies = [
+ "portable-pty",
+ "serde",
+ "tokio",
+ "uuid",
+ "vt100",
+]
 
 [[package]]
 name = "zmij"

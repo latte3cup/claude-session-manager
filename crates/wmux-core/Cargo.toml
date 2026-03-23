@@ -4,3 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+uuid = { version = "1", features = ["v4", "serde"] }
+serde = { version = "1", features = ["derive"] }
+portable-pty = "0.8"
+vt100 = "0.15"
+tokio = { version = "1", features = ["full"] }

@@ -1,4 +1,4 @@
-use wmux::terminal::shell::detect_shell;
+use wmux_core::terminal::shell::detect_shell;
 
 #[test]
 fn cli_flag_takes_precedence() {
