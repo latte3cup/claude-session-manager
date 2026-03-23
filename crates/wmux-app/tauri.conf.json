@@ -6,6 +6,7 @@
     "frontendDist": "./frontend"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "wmux",
