@@ -67,6 +67,25 @@ export function createTerminal(surfaceId) {
   const container = document.createElement('div');
   container.className = 'pane';
   container.dataset.surfaceId = surfaceId;
+
+  const closeButton = document.createElement('button');
+  closeButton.className = 'pane-close';
+  closeButton.type = 'button';
+  closeButton.title = 'Close pane';
+  closeButton.setAttribute('aria-label', 'Close pane');
+  closeButton.textContent = '×';
+  closeButton.addEventListener('mousedown', (event) => {
+    event.stopPropagation();
+  });
+  closeButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    const result = await window.__TAURI__.core.invoke('close_pane', { surfaceId });
+    if (result?.should_quit) {
+      await window.__TAURI__.window.getCurrentWindow().close();
+    }
+  });
+  container.appendChild(closeButton);
+
   document.getElementById('pane-area').appendChild(container);
 
   term.open(container);
@@ -89,7 +108,7 @@ export function createTerminal(surfaceId) {
     }
   });
 
-  const entry = { term, fitAddon, container, onDataDispose };
+  const entry = { term, fitAddon, container, closeButton, onDataDispose };
   terminals.set(surfaceId, entry);
   return entry;
 }
@@ -132,10 +151,21 @@ export function getAllSurfaceIds() {
   return new Set(terminals.keys());
 }
 
+function nextFrame() {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
 // Position panes based on layout data and fit them.
 // totalWidthCells/totalHeightCells are the cell dimensions passed to get_layout.
-export function applyLayout(panes, totalWidthCells, totalHeightCells) {
+export async function applyLayout(panes, totalWidthCells, totalHeightCells, knownSurfaceIds = []) {
   const newIds = new Set(panes.map(p => p.surface_id));
+  const knownIds = new Set(knownSurfaceIds);
+
+  for (const id of [...terminals.keys()]) {
+    if (knownIds.size > 0 && !knownIds.has(id)) {
+      destroyTerminal(id);
+    }
+  }
 
   // Hide terminals not in this layout (workspace switch — keep alive for scrollback)
   for (const [id, entry] of terminals) {
@@ -161,6 +191,8 @@ export function applyLayout(panes, totalWidthCells, totalHeightCells) {
     entry.container.style.top = `${top}%`;
     entry.container.style.width = `${width}%`;
     entry.container.style.height = `${height}%`;
+    entry.container.style.right = 'auto';
+    entry.container.style.bottom = 'auto';
     entry.container.style.display = '';
 
     if (pane.is_focused) {
@@ -169,14 +201,21 @@ export function applyLayout(panes, totalWidthCells, totalHeightCells) {
   }
 
   // Fit all terminals after positioning (need a frame for CSS to settle)
-  requestAnimationFrame(() => {
-    for (const pane of panes) {
-      const entry = terminals.get(pane.surface_id);
-      if (entry) {
-        entry.fitAddon.fit();
-      }
+  await nextFrame();
+  for (const pane of panes) {
+    const entry = terminals.get(pane.surface_id);
+    if (entry) {
+      entry.fitAddon.fit();
     }
-  });
+  }
+
+  await nextFrame();
+  for (const pane of panes) {
+    const entry = terminals.get(pane.surface_id);
+    if (entry) {
+      entry.fitAddon.fit();
+    }
+  }
 }
 
 // Hide all terminals (used when switching workspaces — terminals for other workspaces stay alive)

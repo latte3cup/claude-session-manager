@@ -1,14 +1,14 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::sync::Arc;
-use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine;
 use serde::Serialize;
+use std::sync::Arc;
 use tauri::{Emitter, Manager};
 use tokio::sync::{mpsc, Mutex};
 use uuid::Uuid;
-use wmux_core::WmuxCore;
 use wmux_core::terminal::shell::detect_shell;
+use wmux_core::WmuxCore;
 
 /// Shared application state accessible from Tauri commands
 ///
@@ -45,6 +45,7 @@ struct PaneInfo {
 #[derive(Clone, Serialize)]
 struct LayoutResult {
     panes: Vec<PaneInfo>,
+    surface_ids: Vec<String>,
     is_zoomed: bool,
     shell: String,
 }
@@ -100,7 +101,9 @@ async fn send_input(
     let mut core = state.core.lock().await;
     let id = Uuid::parse_str(&surface_id).map_err(|e| e.to_string())?;
     if let Some(surface) = core.surfaces.get_mut(&id) {
-        surface.send_bytes(data.as_bytes()).map_err(|e| e.to_string())?;
+        surface
+            .send_bytes(data.as_bytes())
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -132,13 +135,21 @@ async fn split_pane(
         _ => wmux_core::model::split_tree::Direction::Vertical,
     };
     let (cols, rows) = core.terminal_size;
-    let result = core.split_surface(dir, &state.pty_tx, &state.exit_tx, cols / 2, rows / 2)
+    let result = core
+        .split_surface(dir, &state.pty_tx, &state.exit_tx, cols / 2, rows / 2)
         .map_err(|e| e.to_string())?;
     match result {
         Some(id) => {
             let _ = app_handle.emit("layout-changed", ());
-            let _ = app_handle.emit("focus-changed", FocusChangedPayload { surface_id: id.to_string() });
-            Ok(SplitResult { surface_id: id.to_string() })
+            let _ = app_handle.emit(
+                "focus-changed",
+                FocusChangedPayload {
+                    surface_id: id.to_string(),
+                },
+            );
+            Ok(SplitResult {
+                surface_id: id.to_string(),
+            })
         }
         None => Err("No focused surface to split".to_string()),
     }
@@ -155,7 +166,12 @@ async fn close_pane(
     let should_quit = core.close_surface(id);
     let _ = app_handle.emit("layout-changed", ());
     if let Some(focused) = core.focused_surface {
-        let _ = app_handle.emit("focus-changed", FocusChangedPayload { surface_id: focused.to_string() });
+        let _ = app_handle.emit(
+            "focus-changed",
+            FocusChangedPayload {
+                surface_id: focused.to_string(),
+            },
+        );
     }
     Ok(CloseResult { should_quit })
 }
@@ -170,7 +186,12 @@ async fn focus_pane(
     let id = Uuid::parse_str(&surface_id).map_err(|e| e.to_string())?;
     core.focus_surface(id);
     if let Some(focused) = core.focused_surface {
-        let _ = app_handle.emit("focus-changed", FocusChangedPayload { surface_id: focused.to_string() });
+        let _ = app_handle.emit(
+            "focus-changed",
+            FocusChangedPayload {
+                surface_id: focused.to_string(),
+            },
+        );
     }
     Ok(())
 }
@@ -191,7 +212,12 @@ async fn focus_direction(
     };
     core.focus_direction(dir);
     if let Some(focused) = core.focused_surface {
-        let _ = app_handle.emit("focus-changed", FocusChangedPayload { surface_id: focused.to_string() });
+        let _ = app_handle.emit(
+            "focus-changed",
+            FocusChangedPayload {
+                surface_id: focused.to_string(),
+            },
+        );
     }
     Ok(())
 }
@@ -204,10 +230,13 @@ async fn create_workspace(
 ) -> Result<CreateResult, String> {
     let mut core = state.core.lock().await;
     let (cols, rows) = core.terminal_size;
-    let ws_id = core.create_workspace(name, &state.pty_tx, &state.exit_tx, cols, rows)
+    let ws_id = core
+        .create_workspace(name, &state.pty_tx, &state.exit_tx, cols, rows)
         .map_err(|e| e.to_string())?;
     let _ = app_handle.emit("layout-changed", ());
-    Ok(CreateResult { workspace_id: ws_id.to_string() })
+    Ok(CreateResult {
+        workspace_id: ws_id.to_string(),
+    })
 }
 
 #[tauri::command]
@@ -220,7 +249,12 @@ async fn switch_workspace(
     core.switch_workspace(index);
     let _ = app_handle.emit("layout-changed", ());
     if let Some(focused) = core.focused_surface {
-        let _ = app_handle.emit("focus-changed", FocusChangedPayload { surface_id: focused.to_string() });
+        let _ = app_handle.emit(
+            "focus-changed",
+            FocusChangedPayload {
+                surface_id: focused.to_string(),
+            },
+        );
     }
     Ok(())
 }
@@ -234,7 +268,12 @@ async fn next_workspace(
     core.next_workspace();
     let _ = app_handle.emit("layout-changed", ());
     if let Some(focused) = core.focused_surface {
-        let _ = app_handle.emit("focus-changed", FocusChangedPayload { surface_id: focused.to_string() });
+        let _ = app_handle.emit(
+            "focus-changed",
+            FocusChangedPayload {
+                surface_id: focused.to_string(),
+            },
+        );
     }
     Ok(())
 }
@@ -248,7 +287,12 @@ async fn prev_workspace(
     core.prev_workspace();
     let _ = app_handle.emit("layout-changed", ());
     if let Some(focused) = core.focused_surface {
-        let _ = app_handle.emit("focus-changed", FocusChangedPayload { surface_id: focused.to_string() });
+        let _ = app_handle.emit(
+            "focus-changed",
+            FocusChangedPayload {
+                surface_id: focused.to_string(),
+            },
+        );
     }
     Ok(())
 }
@@ -268,11 +312,15 @@ async fn get_layout(
         // Zoomed: single pane fills entire area
         vec![PaneInfo {
             surface_id: zoom_id.to_string(),
-            x: 0, y: 0, width, height,
+            x: 0,
+            y: 0,
+            width,
+            height,
             is_focused: true,
         }]
     } else if let Some(ws) = core.active_workspace_ref() {
-        ws.split_tree.layout(0, 0, width, height)
+        ws.split_tree
+            .layout(0, 0, width, height)
             .iter()
             .map(|l| PaneInfo {
                 surface_id: l.surface_id.to_string(),
@@ -287,21 +335,27 @@ async fn get_layout(
         vec![]
     };
 
-    let shell_name = core.shell.rsplit(['\\', '/']).next().unwrap_or(&core.shell).to_string();
+    let shell_name = core
+        .shell
+        .rsplit(['\\', '/'])
+        .next()
+        .unwrap_or(&core.shell)
+        .to_string();
+    let surface_ids = core.surfaces.keys().map(|id| id.to_string()).collect();
 
     Ok(LayoutResult {
         panes,
+        surface_ids,
         is_zoomed: core.zoom_surface.is_some(),
         shell: shell_name,
     })
 }
 
 #[tauri::command]
-async fn get_tab_info(
-    state: tauri::State<'_, Arc<AppState>>,
-) -> Result<TabInfoResult, String> {
+async fn get_tab_info(state: tauri::State<'_, Arc<AppState>>) -> Result<TabInfoResult, String> {
     let core = state.core.lock().await;
-    let tabs: Vec<TabInfo> = core.tab_info()
+    let tabs: Vec<TabInfo> = core
+        .tab_info()
         .into_iter()
         .map(|(name, is_active)| TabInfo { name, is_active })
         .collect();
