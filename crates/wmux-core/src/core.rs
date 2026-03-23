@@ -68,7 +68,12 @@ impl WmuxCore {
     ) -> Result<Uuid, Box<dyn std::error::Error>> {
         let surface_id = Uuid::new_v4();
         let pty = spawn_pty(&self.shell, cols, rows, None)?;
-        start_pty_reader(surface_id, pty.master.as_ref(), pty_tx.clone(), exit_tx.clone())?;
+        start_pty_reader(
+            surface_id,
+            pty.master.as_ref(),
+            pty_tx.clone(),
+            exit_tx.clone(),
+        )?;
 
         let surface = Surface::new(surface_id, self.shell.clone(), cols, rows, pty);
         self.surfaces.insert(surface_id, surface);
@@ -124,7 +129,9 @@ impl WmuxCore {
                 }
                 self.active_workspace = self.active_workspace.min(self.workspaces.len() - 1);
                 self.focused_surface = Some(
-                    self.workspaces[self.active_workspace].split_tree.first_surface(),
+                    self.workspaces[self.active_workspace]
+                        .split_tree
+                        .first_surface(),
                 );
             } else {
                 ws.split_tree.remove(surface_id);
@@ -154,7 +161,10 @@ impl WmuxCore {
             let layouts = ws.split_tree.layout(0, 0, w, h);
             for layout in &layouts {
                 if let Some(surface) = self.surfaces.get_mut(&layout.surface_id) {
-                    surface.resize(layout.width.saturating_sub(2), layout.height.saturating_sub(2));
+                    surface.resize(
+                        layout.width.saturating_sub(2),
+                        layout.height.saturating_sub(2),
+                    );
                 }
             }
         }
@@ -164,7 +174,9 @@ impl WmuxCore {
         if !self.workspaces.is_empty() {
             self.active_workspace = (self.active_workspace + 1) % self.workspaces.len();
             self.focused_surface = Some(
-                self.workspaces[self.active_workspace].split_tree.first_surface(),
+                self.workspaces[self.active_workspace]
+                    .split_tree
+                    .first_surface(),
             );
             self.resize_active_workspace();
         }
@@ -178,7 +190,9 @@ impl WmuxCore {
                 self.active_workspace - 1
             };
             self.focused_surface = Some(
-                self.workspaces[self.active_workspace].split_tree.first_surface(),
+                self.workspaces[self.active_workspace]
+                    .split_tree
+                    .first_surface(),
             );
             self.resize_active_workspace();
         }
@@ -188,7 +202,9 @@ impl WmuxCore {
         if index < self.workspaces.len() {
             self.active_workspace = index;
             self.focused_surface = Some(
-                self.workspaces[self.active_workspace].split_tree.first_surface(),
+                self.workspaces[self.active_workspace]
+                    .split_tree
+                    .first_surface(),
             );
             self.resize_active_workspace();
         }
@@ -197,7 +213,9 @@ impl WmuxCore {
     pub fn focus_direction(&mut self, dir: FocusDirection) {
         match dir {
             FocusDirection::Right | FocusDirection::Down => {
-                if let (Some(focused), Some(ws)) = (self.focused_surface, self.active_workspace_ref()) {
+                if let (Some(focused), Some(ws)) =
+                    (self.focused_surface, self.active_workspace_ref())
+                {
                     let ids = ws.split_tree.surface_ids();
                     if let Some(pos) = ids.iter().position(|id| *id == focused) {
                         if pos + 1 < ids.len() {
@@ -207,7 +225,9 @@ impl WmuxCore {
                 }
             }
             FocusDirection::Left | FocusDirection::Up => {
-                if let (Some(focused), Some(ws)) = (self.focused_surface, self.active_workspace_ref()) {
+                if let (Some(focused), Some(ws)) =
+                    (self.focused_surface, self.active_workspace_ref())
+                {
                     let ids = ws.split_tree.surface_ids();
                     if let Some(pos) = ids.iter().position(|id| *id == focused) {
                         if pos > 0 {
@@ -248,7 +268,9 @@ impl WmuxCore {
 
     pub fn handle_pty_exit(&mut self, surface_id: Uuid) {
         if let Some(surface) = self.surfaces.get_mut(&surface_id) {
-            let code = surface.pty.as_mut()
+            let code = surface
+                .pty
+                .as_mut()
                 .and_then(|pty| pty.child.try_wait().ok().flatten())
                 .map(|status| status.exit_code() as i32)
                 .unwrap_or(0);

@@ -1,6 +1,6 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Style, Modifier};
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::Widget;
 
 pub struct TabBar<'a> {
@@ -18,7 +18,10 @@ impl<'a> Widget for TabBar<'a> {
                 break;
             }
             let style = if *active {
-                Style::default().fg(Color::White).bg(Color::Blue).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::White)
+                    .bg(Color::Blue)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::Gray).bg(Color::DarkGray)
             };
@@ -28,6 +31,11 @@ impl<'a> Widget for TabBar<'a> {
 
         let brand = " wmux ";
         let bx = area.right().saturating_sub(brand.len() as u16);
-        buf.set_string(bx, area.y, brand, Style::default().fg(Color::Cyan).bg(Color::DarkGray));
+        buf.set_string(
+            bx,
+            area.y,
+            brand,
+            Style::default().fg(Color::Cyan).bg(Color::DarkGray),
+        );
     }
 }

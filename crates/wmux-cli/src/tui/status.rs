@@ -20,6 +20,11 @@ impl<'a> Widget for StatusBar<'a> {
             self.shell_name,
             self.pipe_path
         );
-        buf.set_string(area.x, area.y, &text, Style::default().fg(Color::White).bg(Color::DarkGray));
+        buf.set_string(
+            area.x,
+            area.y,
+            &text,
+            Style::default().fg(Color::White).bg(Color::DarkGray),
+        );
     }
 }

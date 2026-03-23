@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind, MouseButton};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
@@ -39,9 +39,7 @@ impl InputHandler {
             return self.dispatch_prefix(key);
         }
 
-        if key.modifiers.contains(KeyModifiers::CONTROL)
-            && key.code == KeyCode::Char('a')
-        {
+        if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('a') {
             self.prefix_mode = true;
             return Action::None;
         }
@@ -81,7 +79,9 @@ pub fn key_event_to_bytes(key: &KeyEvent) -> Option<Vec<u8>> {
     match key.code {
         KeyCode::Char(c) => {
             if ctrl {
-                let code = (c.to_ascii_lowercase() as u8).wrapping_sub(b'a').wrapping_add(1);
+                let code = (c.to_ascii_lowercase() as u8)
+                    .wrapping_sub(b'a')
+                    .wrapping_add(1);
                 Some(vec![code])
             } else {
                 let mut buf = [0u8; 4];

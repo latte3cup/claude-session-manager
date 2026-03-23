@@ -2,9 +2,9 @@ use serde_json::{json, Value};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use wmux_core::WmuxCore;
 use wmux_core::socket::commands::dispatch;
 use wmux_core::socket::protocol::Request;
+use wmux_core::WmuxCore;
 
 fn make_request(id: &str, method: &str, params: Value) -> Request {
     serde_json::from_value(json!({
@@ -15,7 +15,11 @@ fn make_request(id: &str, method: &str, params: Value) -> Request {
     .unwrap()
 }
 
-fn setup_core_with_workspace() -> (WmuxCore, mpsc::UnboundedSender<(Uuid, Vec<u8>)>, mpsc::UnboundedSender<Uuid>) {
+fn setup_core_with_workspace() -> (
+    WmuxCore,
+    mpsc::UnboundedSender<(Uuid, Vec<u8>)>,
+    mpsc::UnboundedSender<Uuid>,
+) {
     let (pty_tx, _pty_rx) = mpsc::unbounded_channel();
     let (exit_tx, _exit_rx) = mpsc::unbounded_channel();
     let mut core = WmuxCore::new("cmd.exe".into(), r"\\.\pipe\wmux-test".into());
@@ -59,7 +63,10 @@ fn workspace_list_returns_workspaces() {
     let req = make_request("1", "workspace.list", json!({}));
     let resp = dispatch(&mut core, &req, &pty_tx, &exit_tx);
     assert!(resp.ok);
-    let workspaces = resp.result.unwrap()["workspaces"].as_array().unwrap().clone();
+    let workspaces = resp.result.unwrap()["workspaces"]
+        .as_array()
+        .unwrap()
+        .clone();
     assert_eq!(workspaces.len(), 1);
     assert_eq!(workspaces[0]["name"], "test");
     assert_eq!(workspaces[0]["index"], 0);
@@ -84,7 +91,8 @@ fn workspace_create_adds_workspace() {
 fn workspace_select_switches_active() {
     let (mut core, pty_tx, exit_tx) = setup_core_with_workspace();
     // Create a second workspace
-    core.create_workspace(Some("second".into()), &pty_tx, &exit_tx, 80, 24).unwrap();
+    core.create_workspace(Some("second".into()), &pty_tx, &exit_tx, 80, 24)
+        .unwrap();
     let ws_id = core.workspaces[0].id.to_string();
 
     let req = make_request("1", "workspace.select", json!({"id": ws_id}));
@@ -131,7 +139,8 @@ fn workspace_current_returns_active() {
 fn workspace_close_removes_workspace() {
     let (mut core, pty_tx, exit_tx) = setup_core_with_workspace();
     // Need at least 2 workspaces so closing one doesn't quit
-    core.create_workspace(Some("second".into()), &pty_tx, &exit_tx, 80, 24).unwrap();
+    core.create_workspace(Some("second".into()), &pty_tx, &exit_tx, 80, 24)
+        .unwrap();
     let ws_id = core.workspaces[0].id.to_string();
 
     let req = make_request("1", "workspace.close", json!({"id": ws_id}));
@@ -240,7 +249,11 @@ fn surface_close_removes_surface() {
 fn surface_send_text_to_valid_surface() {
     let (mut core, pty_tx, exit_tx) = setup_core_with_workspace();
     let id = core.focused_surface.unwrap().to_string();
-    let req = make_request("1", "surface.send_text", json!({"id": id, "text": "echo hello\r"}));
+    let req = make_request(
+        "1",
+        "surface.send_text",
+        json!({"id": id, "text": "echo hello\r"}),
+    );
     let resp = dispatch(&mut core, &req, &pty_tx, &exit_tx);
     assert!(resp.ok);
 }
@@ -249,7 +262,11 @@ fn surface_send_text_to_valid_surface() {
 fn surface_send_text_nonexistent_errors() {
     let (mut core, pty_tx, exit_tx) = setup_core_with_workspace();
     let fake_id = Uuid::new_v4().to_string();
-    let req = make_request("1", "surface.send_text", json!({"id": fake_id, "text": "hello"}));
+    let req = make_request(
+        "1",
+        "surface.send_text",
+        json!({"id": fake_id, "text": "hello"}),
+    );
     let resp = dispatch(&mut core, &req, &pty_tx, &exit_tx);
     assert!(!resp.ok);
     assert_eq!(resp.error.unwrap().code, "not_found");

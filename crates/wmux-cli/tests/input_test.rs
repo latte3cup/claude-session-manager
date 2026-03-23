@@ -1,5 +1,8 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, KeyEventKind, KeyEventState, MouseEvent, MouseEventKind, MouseButton};
-use wmux::input::{Action, InputHandler, key_event_to_bytes, mouse_event_to_sgr_bytes};
+use crossterm::event::{
+    KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers, MouseButton, MouseEvent,
+    MouseEventKind,
+};
+use wmux::input::{key_event_to_bytes, mouse_event_to_sgr_bytes, Action, InputHandler};
 
 fn key(code: KeyCode) -> KeyEvent {
     KeyEvent::new(code, KeyModifiers::NONE)
@@ -48,49 +51,70 @@ fn unrecognized_prefix_key_returns_none() {
 fn prefix_c_creates_workspace() {
     let mut handler = InputHandler::new();
     handler.handle_key(ctrl('a'));
-    assert_eq!(handler.handle_key(key(KeyCode::Char('c'))), Action::NewWorkspace);
+    assert_eq!(
+        handler.handle_key(key(KeyCode::Char('c'))),
+        Action::NewWorkspace
+    );
 }
 
 #[test]
 fn prefix_n_next_workspace() {
     let mut handler = InputHandler::new();
     handler.handle_key(ctrl('a'));
-    assert_eq!(handler.handle_key(key(KeyCode::Char('n'))), Action::NextWorkspace);
+    assert_eq!(
+        handler.handle_key(key(KeyCode::Char('n'))),
+        Action::NextWorkspace
+    );
 }
 
 #[test]
 fn prefix_p_prev_workspace() {
     let mut handler = InputHandler::new();
     handler.handle_key(ctrl('a'));
-    assert_eq!(handler.handle_key(key(KeyCode::Char('p'))), Action::PrevWorkspace);
+    assert_eq!(
+        handler.handle_key(key(KeyCode::Char('p'))),
+        Action::PrevWorkspace
+    );
 }
 
 #[test]
 fn prefix_pipe_splits_vertical() {
     let mut handler = InputHandler::new();
     handler.handle_key(ctrl('a'));
-    assert_eq!(handler.handle_key(key(KeyCode::Char('|'))), Action::SplitVertical);
+    assert_eq!(
+        handler.handle_key(key(KeyCode::Char('|'))),
+        Action::SplitVertical
+    );
 }
 
 #[test]
 fn prefix_backslash_splits_vertical() {
     let mut handler = InputHandler::new();
     handler.handle_key(ctrl('a'));
-    assert_eq!(handler.handle_key(key(KeyCode::Char('\\'))), Action::SplitVertical);
+    assert_eq!(
+        handler.handle_key(key(KeyCode::Char('\\'))),
+        Action::SplitVertical
+    );
 }
 
 #[test]
 fn prefix_dash_splits_horizontal() {
     let mut handler = InputHandler::new();
     handler.handle_key(ctrl('a'));
-    assert_eq!(handler.handle_key(key(KeyCode::Char('-'))), Action::SplitHorizontal);
+    assert_eq!(
+        handler.handle_key(key(KeyCode::Char('-'))),
+        Action::SplitHorizontal
+    );
 }
 
 #[test]
 fn prefix_x_closes_surface() {
     let mut handler = InputHandler::new();
     handler.handle_key(ctrl('a'));
-    assert_eq!(handler.handle_key(key(KeyCode::Char('x'))), Action::CloseSurface);
+    assert_eq!(
+        handler.handle_key(key(KeyCode::Char('x'))),
+        Action::CloseSurface
+    );
 }
 
 #[test]
@@ -104,21 +128,30 @@ fn prefix_q_quits() {
 fn prefix_z_toggles_zoom() {
     let mut handler = InputHandler::new();
     handler.handle_key(ctrl('a'));
-    assert_eq!(handler.handle_key(key(KeyCode::Char('z'))), Action::ToggleZoom);
+    assert_eq!(
+        handler.handle_key(key(KeyCode::Char('z'))),
+        Action::ToggleZoom
+    );
 }
 
 #[test]
 fn prefix_1_selects_workspace_0() {
     let mut handler = InputHandler::new();
     handler.handle_key(ctrl('a'));
-    assert_eq!(handler.handle_key(key(KeyCode::Char('1'))), Action::SelectWorkspace(0));
+    assert_eq!(
+        handler.handle_key(key(KeyCode::Char('1'))),
+        Action::SelectWorkspace(0)
+    );
 }
 
 #[test]
 fn prefix_9_selects_workspace_8() {
     let mut handler = InputHandler::new();
     handler.handle_key(ctrl('a'));
-    assert_eq!(handler.handle_key(key(KeyCode::Char('9'))), Action::SelectWorkspace(8));
+    assert_eq!(
+        handler.handle_key(key(KeyCode::Char('9'))),
+        Action::SelectWorkspace(8)
+    );
 }
 
 #[test]
@@ -202,15 +235,24 @@ fn arrow_keys_to_bytes() {
 fn home_end_delete_to_bytes() {
     assert_eq!(key_event_to_bytes(&key(KeyCode::Home)).unwrap(), b"\x1b[H");
     assert_eq!(key_event_to_bytes(&key(KeyCode::End)).unwrap(), b"\x1b[F");
-    assert_eq!(key_event_to_bytes(&key(KeyCode::Delete)).unwrap(), b"\x1b[3~");
+    assert_eq!(
+        key_event_to_bytes(&key(KeyCode::Delete)).unwrap(),
+        b"\x1b[3~"
+    );
 }
 
 #[test]
 fn function_keys_to_bytes() {
     assert_eq!(key_event_to_bytes(&key(KeyCode::F(1))).unwrap(), b"\x1bOP");
     assert_eq!(key_event_to_bytes(&key(KeyCode::F(4))).unwrap(), b"\x1bOS");
-    assert_eq!(key_event_to_bytes(&key(KeyCode::F(5))).unwrap(), b"\x1b[15~");
-    assert_eq!(key_event_to_bytes(&key(KeyCode::F(12))).unwrap(), b"\x1b[24~");
+    assert_eq!(
+        key_event_to_bytes(&key(KeyCode::F(5))).unwrap(),
+        b"\x1b[15~"
+    );
+    assert_eq!(
+        key_event_to_bytes(&key(KeyCode::F(12))).unwrap(),
+        b"\x1b[24~"
+    );
 }
 
 #[test]
@@ -228,7 +270,12 @@ fn unknown_key_returns_none() {
 // === Mouse SGR encoding ===
 
 fn mouse(kind: MouseEventKind, col: u16, row: u16) -> MouseEvent {
-    MouseEvent { kind, column: col, row, modifiers: KeyModifiers::NONE }
+    MouseEvent {
+        kind,
+        column: col,
+        row,
+        modifiers: KeyModifiers::NONE,
+    }
 }
 
 #[test]

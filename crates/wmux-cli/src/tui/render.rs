@@ -1,12 +1,12 @@
-use ratatui::Frame;
+use crate::model::split_tree::SurfaceLayout;
+use crate::model::surface::Surface;
+use crate::tui::status::StatusBar;
+use crate::tui::surface_view::SurfaceView;
+use crate::tui::tabs::TabBar;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders};
-use crate::model::split_tree::SurfaceLayout;
-use crate::model::surface::Surface;
-use crate::tui::surface_view::SurfaceView;
-use crate::tui::tabs::TabBar;
-use crate::tui::status::StatusBar;
+use ratatui::Frame;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -43,7 +43,9 @@ pub fn render_frame(f: &mut Frame, ctx: &RenderContext) {
     if let Some(zoom_id) = ctx.zoom_surface {
         let is_focused = true;
         let border_style = Style::default().fg(Color::Yellow);
-        let block = Block::default().borders(Borders::ALL).border_style(border_style);
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(border_style);
         let inner = block.inner(content);
         f.render_widget(block, content);
 
@@ -72,7 +74,9 @@ pub fn render_frame(f: &mut Frame, ctx: &RenderContext) {
             } else {
                 Style::default().fg(Color::DarkGray)
             };
-            let block = Block::default().borders(Borders::ALL).border_style(border_style);
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(border_style);
             let inner = block.inner(area);
             f.render_widget(block, area);
 
@@ -84,7 +88,8 @@ pub fn render_frame(f: &mut Frame, ctx: &RenderContext) {
     }
 
     // Status bar
-    let surface_index = ctx.focused_surface
+    let surface_index = ctx
+        .focused_surface
         .and_then(|id| ctx.layouts.iter().position(|l| l.surface_id == id))
         .unwrap_or(0);
 

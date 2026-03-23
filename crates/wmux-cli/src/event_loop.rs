@@ -2,7 +2,9 @@ use std::io;
 
 use std::time::Duration;
 
-use crossterm::event::{self, Event, KeyEventKind, MouseEventKind, MouseButton, EnableMouseCapture, DisableMouseCapture};
+use crossterm::event::{
+    self, DisableMouseCapture, EnableMouseCapture, Event, KeyEventKind, MouseButton, MouseEventKind,
+};
 use crossterm::terminal::{self, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::ExecutableCommand;
 use ratatui::backend::CrosstermBackend;
@@ -10,11 +12,11 @@ use ratatui::Terminal;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use wmux_core::{WmuxCore, FocusDirection};
-use crate::input::{Action, InputHandler, key_event_to_bytes, mouse_event_to_sgr_bytes};
+use crate::input::{key_event_to_bytes, mouse_event_to_sgr_bytes, Action, InputHandler};
 use crate::model::split_tree::Direction;
 use crate::terminal::shell::detect_shell;
 use crate::tui::render::{render_frame, RenderContext};
+use wmux_core::{FocusDirection, WmuxCore};
 
 pub struct DragState {
     pub border_path: Vec<bool>,
@@ -63,17 +65,19 @@ pub async fn run(
     core.set_terminal_size(size.width, content_height);
     if let Err(e) = core.create_workspace(None, &pty_tx, &exit_tx, size.width, content_height) {
         cleanup_terminal();
-        return Err(format!("Failed to start shell: {}. Use --shell to specify a different shell.", e).into());
+        return Err(format!(
+            "Failed to start shell: {}. Use --shell to specify a different shell.",
+            e
+        )
+        .into());
     }
 
     let (input_tx, mut input_rx) = mpsc::unbounded_channel::<Event>();
-    std::thread::spawn(move || {
-        loop {
-            if event::poll(Duration::from_millis(50)).unwrap_or(false) {
-                if let Ok(ev) = event::read() {
-                    if input_tx.send(ev).is_err() {
-                        break;
-                    }
+    std::thread::spawn(move || loop {
+        if event::poll(Duration::from_millis(50)).unwrap_or(false) {
+            if let Ok(ev) = event::read() {
+                if input_tx.send(ev).is_err() {
+                    break;
                 }
             }
         }
@@ -311,10 +315,22 @@ fn handle_action(
             core.switch_workspace(idx);
         }
         Action::SplitVertical => {
-            core.split_surface(Direction::Vertical, pty_tx, exit_tx, size.width / 2, content_h)?;
+            core.split_surface(
+                Direction::Vertical,
+                pty_tx,
+                exit_tx,
+                size.width / 2,
+                content_h,
+            )?;
         }
         Action::SplitHorizontal => {
-            core.split_surface(Direction::Horizontal, pty_tx, exit_tx, size.width, content_h / 2)?;
+            core.split_surface(
+                Direction::Horizontal,
+                pty_tx,
+                exit_tx,
+                size.width,
+                content_h / 2,
+            )?;
         }
         Action::FocusRight => {
             core.focus_direction(FocusDirection::Right);

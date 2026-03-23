@@ -1,8 +1,8 @@
-use tokio::sync::mpsc;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::windows::named_pipe::ServerOptions;
 use crate::event_loop::SocketRequest;
 use crate::socket::protocol::{Request, Response};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::net::windows::named_pipe::ServerOptions;
+use tokio::sync::mpsc;
 
 pub async fn start_pipe_server(
     pipe_path: String,
@@ -35,11 +35,8 @@ async fn handle_connection(
         let request: Request = match serde_json::from_str(&line) {
             Ok(req) => req,
             Err(e) => {
-                let err_resp = Response::error(
-                    "".into(),
-                    "parse_error",
-                    &format!("Invalid JSON: {}", e),
-                );
+                let err_resp =
+                    Response::error("".into(), "parse_error", &format!("Invalid JSON: {}", e));
                 let mut json = serde_json::to_string(&err_resp)?;
                 json.push('\n');
                 writer.write_all(json.as_bytes()).await?;

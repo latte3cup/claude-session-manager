@@ -1,5 +1,5 @@
-use wmux_core::model::split_tree::{SplitNode, Direction};
 use uuid::Uuid;
+use wmux_core::model::split_tree::{Direction, SplitNode};
 
 #[test]
 fn single_leaf_layout() {
@@ -71,7 +71,9 @@ fn split_at_leaf() {
     match &node {
         SplitNode::Split { first, second, .. } => {
             assert!(matches!(first.as_ref(), SplitNode::Leaf { surface_id } if *surface_id == id1));
-            assert!(matches!(second.as_ref(), SplitNode::Leaf { surface_id } if *surface_id == id2));
+            assert!(
+                matches!(second.as_ref(), SplitNode::Leaf { surface_id } if *surface_id == id2)
+            );
         }
         _ => panic!("Expected Split node"),
     }
@@ -342,9 +344,9 @@ fn surface_at_nested_split() {
             second: Box::new(SplitNode::Leaf { surface_id: id3 }),
         }),
     };
-    assert_eq!(node.surface_at(10, 10, 0, 0, 120, 40), Some(id1));  // left
-    assert_eq!(node.surface_at(80, 5, 0, 0, 120, 40), Some(id2));   // top-right
-    assert_eq!(node.surface_at(80, 30, 0, 0, 120, 40), Some(id3));  // bottom-right
+    assert_eq!(node.surface_at(10, 10, 0, 0, 120, 40), Some(id1)); // left
+    assert_eq!(node.surface_at(80, 5, 0, 0, 120, 40), Some(id2)); // top-right
+    assert_eq!(node.surface_at(80, 30, 0, 0, 120, 40), Some(id3)); // bottom-right
 }
 
 #[test]

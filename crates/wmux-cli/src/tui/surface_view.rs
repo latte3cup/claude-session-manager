@@ -13,7 +13,11 @@ pub struct SurfaceView<'a> {
 
 impl<'a> SurfaceView<'a> {
     pub fn new(screen: &'a Screen, focused: bool, exited: Option<i32>) -> Self {
-        Self { screen, focused, exited }
+        Self {
+            screen,
+            focused,
+            exited,
+        }
     }
 }
 
