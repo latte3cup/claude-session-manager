@@ -67,6 +67,25 @@ export function createTerminal(surfaceId) {
   const container = document.createElement('div');
   container.className = 'pane';
   container.dataset.surfaceId = surfaceId;
+
+  const closeButton = document.createElement('button');
+  closeButton.className = 'pane-close';
+  closeButton.type = 'button';
+  closeButton.title = 'Close pane';
+  closeButton.setAttribute('aria-label', 'Close pane');
+  closeButton.textContent = '×';
+  closeButton.addEventListener('mousedown', (event) => {
+    event.stopPropagation();
+  });
+  closeButton.addEventListener('click', async (event) => {
+    event.stopPropagation();
+    const result = await window.__TAURI__.core.invoke('close_pane', { surfaceId });
+    if (result?.should_quit) {
+      await window.__TAURI__.window.getCurrentWindow().close();
+    }
+  });
+  container.appendChild(closeButton);
+
   document.getElementById('pane-area').appendChild(container);
 
   term.open(container);
@@ -89,7 +108,7 @@ export function createTerminal(surfaceId) {
     }
   });
 
-  const entry = { term, fitAddon, container, onDataDispose };
+  const entry = { term, fitAddon, container, closeButton, onDataDispose };
   terminals.set(surfaceId, entry);
   return entry;
 }
