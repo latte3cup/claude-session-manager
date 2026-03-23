@@ -1,6 +1,6 @@
 [package]
 name = "wmux-core"
-version = "0.1.0"
+version = "0.4.0"
 edition = "2021"
 
 [dependencies]
@@ -10,3 +10,4 @@ serde_json = "1"
 portable-pty = "0.8"
 vt100 = "0.15"
 tokio = { version = "1", features = ["full"] }
+sysinfo = "0.30"
