@@ -154,6 +154,12 @@ pub struct SocketRequest {
     pub response_tx: tokio::sync::oneshot::Sender<crate::socket::protocol::Response>,
 }
 
+/// Restore terminal to normal state.
+fn cleanup_terminal() {
+    let _ = terminal::disable_raw_mode();
+    let _ = io::stdout().execute(LeaveAlternateScreen);
+}
+
 /// Main event loop.
 pub async fn run(
     cli_shell: Option<String>,
@@ -177,7 +183,10 @@ pub async fn run(
     let size = terminal.size()?;
     let content_height = size.height.saturating_sub(2);
     app.terminal_size = (size.width, content_height);
-    app.create_workspace(None, &pty_tx, &exit_tx, size.width, content_height)?;
+    if let Err(e) = app.create_workspace(None, &pty_tx, &exit_tx, size.width, content_height) {
+        cleanup_terminal();
+        return Err(format!("Failed to start shell: {}. Use --shell to specify a different shell.", e).into());
+    }
 
     let (input_tx, mut input_rx) = mpsc::unbounded_channel::<Event>();
     std::thread::spawn(move || {
@@ -278,8 +287,7 @@ pub async fn run(
         }
     }
 
-    terminal::disable_raw_mode()?;
-    io::stdout().execute(LeaveAlternateScreen)?;
+    cleanup_terminal();
     Ok(())
 }
 
