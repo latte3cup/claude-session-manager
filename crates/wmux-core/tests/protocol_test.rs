@@ -1,4 +1,4 @@
-use wmux::socket::protocol::{Request, Response};
+use wmux_core::socket::protocol::{Request, Response};
 
 #[test]
 fn parse_valid_request() {
