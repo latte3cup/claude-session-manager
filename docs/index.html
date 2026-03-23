@@ -25,7 +25,7 @@
       --card-border: #333;
       --mono: 'Cascadia Code', 'Fira Code', 'SF Mono', 'Consolas', monospace;
     }
-    body { background: #0a0a0a; color: #fafafa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.5; }
+    body { background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.5; }
     .container { max-width: 960px; margin: 0 auto; padding: 0 1.5rem; }
     section { padding: 5rem 0; }
     #hero { padding: 0; }
@@ -42,6 +42,7 @@
     .btn-primary:hover { background: #2563EB; }
     .btn-ghost { border: 1px solid var(--card-border); color: var(--fg); }
     .btn-ghost:hover { border-color: var(--fg); }
+    .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
     /* Features */
     .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
@@ -83,7 +84,8 @@
     .faq-list { max-width: 640px; }
     .faq-item { border-bottom: 1px solid var(--border); }
     .faq-item summary { padding: 1.25rem 0; font-weight: 600; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; }
-    .faq-item summary::after { content: '+'; font-size: 1.25rem; color: var(--muted); transition: transform 0.2s; }
+    .faq-item summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .faq-item summary::after { content: '+'; font-size: 1.25rem; color: var(--muted); }
     .faq-item[open] summary::after { content: '−'; }
     .faq-item p { padding: 0 0 1.25rem; color: var(--muted); line-height: 1.6; }
     .faq-item code { font-family: var(--mono); font-size: 0.85em; background: #1a1a1a; padding: 0.1rem 0.4rem; border-radius: 3px; }
@@ -95,11 +97,14 @@
     .footer-links { display: flex; gap: 1.5rem; }
     .footer-links a { color: var(--muted); text-decoration: none; font-size: 0.85rem; transition: color 0.2s; }
     .footer-links a:hover { color: var(--fg); }
+    .footer-links a:focus-visible { color: var(--fg); outline: 1px solid var(--accent); outline-offset: 2px; }
     .footer-tagline { color: var(--muted); font-size: 0.8rem; }
     .footer-copyright { color: var(--muted); font-size: 0.75rem; }
   </style>
 </head>
 <body>
+
+  <main>
 
   <!-- Hero -->
   <section id="hero">
@@ -117,7 +122,7 @@
   <!-- Features -->
   <section id="features">
     <div class="container">
-      <div class="section-title">Features</div>
+      <h2 class="section-title">Features</h2>
       <div class="features-grid">
         <div class="feature-card">
           <h3>Split Panes</h3>
@@ -150,7 +155,7 @@
   <!-- Demo -->
   <section id="demo">
     <div class="container">
-      <div class="terminal">
+      <div class="terminal" aria-label="Terminal demo showing wmux with split panes">
         <div class="terminal-titlebar">
           <span>wmux</span>
           <div class="terminal-controls">
@@ -196,7 +201,7 @@ nothing to commit, working tree clean
   <!-- Quick Start -->
   <section id="quickstart">
     <div class="container">
-      <div class="section-title">Quick Start</div>
+      <h2 class="section-title">Quick Start</h2>
       <pre class="code-block"><span class="t-muted">$</span> git clone https://github.com/fernandomenuk/wmux.git
 <span class="t-muted">$</span> cd wmux
 <span class="t-muted">$</span> cargo build --release
@@ -224,7 +229,7 @@ nothing to commit, working tree clean
   <!-- FAQ -->
   <section id="faq">
     <div class="container">
-      <div class="section-title">FAQ</div>
+      <h2 class="section-title">FAQ</h2>
       <div class="faq-list">
         <details class="faq-item">
           <summary>What shells does wmux support?</summary>
@@ -249,6 +254,8 @@ nothing to commit, working tree clean
       </div>
     </div>
   </section>
+
+  </main>
 
   <!-- Footer -->
   <footer>
