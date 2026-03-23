@@ -47,7 +47,7 @@ Built on ConPTY (Windows' native pseudo-terminal), so it works in Windows Termin
 
 ```bash
 # Build from source
-git clone https://github.com/anthropics/wmux.git
+git clone https://github.com/fernandomenuk/wmux.git
 cd wmux
 cargo build --release
 
