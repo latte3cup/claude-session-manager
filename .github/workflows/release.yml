@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/wmux-app
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --locked
+
+      - name: Build Tauri app
+        run: cargo tauri build
+        working-directory: crates/wmux-app
+
+      - name: Rename artifacts to stable names
+        shell: pwsh
+        run: |
+          $version = (Get-Content crates/wmux-app/tauri.conf.json | ConvertFrom-Json).version
+          $nsisSource = "target/release/bundle/nsis/wmux_${version}_x64-setup.exe"
+          $msiSource  = "target/release/bundle/nsis/../msi/wmux_${version}_x64_en-US.msi"
+
+          # Also keep version-specific names for reference
+          Copy-Item $nsisSource "target/release/bundle/wmux-setup.exe"
+          Copy-Item "target/release/bundle/msi/wmux_${version}_x64_en-US.msi" "target/release/bundle/wmux.msi"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            target/release/bundle/wmux-setup.exe
+            target/release/bundle/wmux.msi
+            target/release/bundle/nsis/wmux_*_x64-setup.exe
+            target/release/bundle/msi/wmux_*_x64_en-US.msi
