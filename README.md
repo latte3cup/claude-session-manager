@@ -18,7 +18,7 @@ One native `.exe`. Zero dependencies. Built with Rust and Tauri.
 
 <br>
 
-[**Website**](https://fernandomenuk.github.io/wmux) · [**Download**](https://github.com/fernandomenuk/wmux/releases/latest/download/wmux.msi) · [**Releases**](https://github.com/fernandomenuk/wmux/releases) · [**Issues**](https://github.com/fernandomenuk/wmux/issues)
+[**Website**](https://fernandomenuk.github.io/wmux) · [**Documentation**](https://fernandomenuk.github.io/wmux/docs/) · [**Download**](https://github.com/fernandomenuk/wmux/releases/latest/download/wmux.msi) · [**Releases**](https://github.com/fernandomenuk/wmux/releases)
 
 <br>
 
@@ -35,9 +35,7 @@ One native `.exe`. Zero dependencies. Built with Rust and Tauri.
 
 **Download the installer:**
 
-```
-https://github.com/fernandomenuk/wmux/releases/latest/download/wmux.msi
-```
+[**Download wmux.msi**](https://github.com/fernandomenuk/wmux/releases/latest/download/wmux.msi)
 
 **Or build from source:**
 
@@ -58,13 +56,25 @@ cargo tauri build
 
 **Any Shell** — PowerShell, CMD, WSL, nushell — anything that runs on Windows
 
-**Command Palette** — quick actions with `Ctrl+Shift+P`
+**Command Palette** — quick actions with `Ctrl+Shift+K`, navigate with arrow keys or Tab
 
 **Blazing Fast** — Rust + ConPTY, near-zero overhead, no Electron
 
+## Claude Code Integration
+
+wmux ships with a built-in MCP server. One-click setup from within the app:
+
+1. Open wmux
+2. Press `Ctrl+Shift+K` → select **"Connect to Claude Code"**
+3. Restart Claude Code
+
+That's it. Claude Code can now create workspaces, split panes, run commands, and read terminal output — all through wmux.
+
+[**Full guide →**](https://fernandomenuk.github.io/wmux/docs/claude-code.html)
+
 ## Socket API
 
-The API is what makes wmux different. AI agents connect over a named pipe and control your terminal sessions with JSON-RPC.
+AI agents connect over a named pipe and control your terminal sessions with JSON-RPC.
 
 ```powershell
 $pipe = New-Object System.IO.Pipes.NamedPipeClientStream(".", "wmux", [System.IO.Pipes.PipeDirection]::InOut)
@@ -74,36 +84,13 @@ $pipe.Connect(5000)
 | Method | Description |
 |---|---|
 | `workspace.create` | Create a new tabbed workspace |
-| `workspace.close` | Close a workspace by ID |
+| `workspace.list` | List all workspaces |
 | `surface.split` | Split the current pane |
 | `surface.send_text` | Send commands to a terminal |
+| `surface.read_output` | Read terminal screen content |
+| `surface.send_key` | Send keys (Enter, Ctrl+C, etc.) |
 
-Compatible with [cmux](https://github.com/anthropics/cmux) v2 protocol.
-
-## MCP Server (Claude Code Integration)
-
-wmux ships with an MCP server so AI agents can control your terminals directly.
-
-**Setup:**
-
-```bash
-cd mcp && npm install && npm run build
-```
-
-Add to your Claude Code MCP config (`~/.claude/settings.json`):
-
-```json
-{
-  "mcpServers": {
-    "wmux": {
-      "command": "node",
-      "args": ["C:/path/to/wmux/mcp/dist/index.js"]
-    }
-  }
-}
-```
-
-Now Claude Code can create workspaces, split panes, run commands, and read terminal output — all through wmux.
+[**Full API reference →**](https://fernandomenuk.github.io/wmux/docs/api.html)
 
 ## Architecture
 
@@ -115,6 +102,19 @@ wmux/
 └── wmux-cli      # Legacy CLI (archived)
 ```
 
+## Keybindings
+
+| Key | Action |
+|---|---|
+| `Ctrl+Shift+K` | Command palette |
+| `Ctrl+A` then `\|` | Split vertical |
+| `Ctrl+A` then `-` | Split horizontal |
+| `Ctrl+A` then `x` | Close pane |
+| `Ctrl+A` then `z` | Toggle zoom |
+| `Ctrl+A` then `c` | New workspace |
+| `Ctrl+A` then `n/p` | Next/prev workspace |
+| `Ctrl+A` then `arrows` | Navigate panes |
+
 ## Roadmap
 
 - [x] Graphical split panes
@@ -122,6 +122,8 @@ wmux/
 - [x] JSON-RPC socket API
 - [x] Command palette
 - [x] Workspace sidebar
+- [x] MCP server (Claude Code integration)
+- [x] `surface.read_output` (terminal screen reading)
 - [ ] Drag-and-drop pane resizing
 - [ ] Theme customization
 - [ ] Session persistence
