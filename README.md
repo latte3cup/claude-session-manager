@@ -32,7 +32,7 @@ A native desktop app for Windows. Built with Rust and Tauri.
 
 ## Why wmux?
 
-Windows developers have been asking for a native terminal multiplexer for years. wmux is a high-performance desktop application that brings the power of `tmux` to Windows with a modern, graphical interface.
+Windows developers have been asking for a native terminal multiplexer for years. wmux is a high-performance desktop application that brings the power of `cmux` to Windows with a modern, graphical interface.
 
 **wmux is the answer.** A native `.exe` that gives you:
 

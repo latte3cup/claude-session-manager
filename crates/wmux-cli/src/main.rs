@@ -12,7 +12,7 @@ mod tui;
 #[command(
     name = "wmux",
     version,
-    about = "tmux for Windows \u{2014} split panes, tabbed workspaces, and a socket API for AI agents",
+    about = "cmux for Windows \u{2014} split panes, tabbed workspaces, and a socket API for AI agents",
     long_about = "wmux is a terminal multiplexer for Windows. It provides split panes, \
 tabbed workspaces, and a JSON-RPC socket API that lets AI coding agents \
 control terminal sessions programmatically.\n\n\

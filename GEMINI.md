@@ -1,4 +1,4 @@
-# wmux - tmux for Windows
+# wmux - cmux for Windows
 
 Native terminal multiplexer for Windows with split panes, tabbed workspaces, and a JSON-RPC socket API for AI agents.
 
