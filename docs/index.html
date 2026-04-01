@@ -48,6 +48,12 @@
     .container { max-width: 1080px; margin: 0 auto; padding: 0 2rem; }
     section { padding: 6rem 0; }
 
+    /* Bounce animation for mascot */
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
     /* Fade-in on scroll */
     .fade-in {
       opacity: 0;
@@ -445,9 +451,11 @@
   <!-- Hero -->
   <section id="hero">
     <div class="container hero">
-      <img src="logo.png" alt="wmux mascot" width="200" height="200" style="display: block; margin: 0 auto 2rem; filter: drop-shadow(0 0 40px rgba(167, 139, 250, 0.4));">
       <div class="hero-badge"><span>v0.6.0</span> Native Desktop App</div>
-      <h1>cmux for Windows.</h1>
+      <div style="display: flex; align-items: center; justify-content: center; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
+        <img src="logo.png" alt="wmux mascot" width="96" height="96" style="filter: drop-shadow(0 0 20px rgba(167, 139, 250, 0.3)); animation: bounce 2s ease-in-out infinite;">
+        <h1 style="margin-bottom: 0;">cmux for Windows.</h1>
+      </div>
       <p class="hero-subtitle">Split panes. Tabbed workspaces. A socket API for AI agents. A high-performance desktop app built with Rust and Tauri.</p>
       <div class="hero-cta">
         <a href="https://github.com/fernandomenuk/wmux/releases/latest/download/wmux-setup.exe" class="btn btn-primary">Download wmux</a>
