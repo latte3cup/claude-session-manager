@@ -1,90 +1,49 @@
 <div align="center">
 
-<img src="docs/logo.png" alt="wmux mascot" width="120">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/logo.png" width="140">
+  <source media="(prefers-color-scheme: light)" srcset="docs/logo.png" width="140">
+  <img alt="wmux" src="docs/logo.png" width="140">
+</picture>
 
-# wmux
+<h1>wmux</h1>
 
-### The terminal multiplexer Windows never had.
+**tmux for Windows. Finally.**
 
-[![Release](https://img.shields.io/github/v/release/fernandomenuk/wmux?color=a78bfa&style=flat-square)](https://github.com/fernandomenuk/wmux/releases)
-[![License: MIT](https://img.shields.io/badge/license-MIT-a78bfa?style=flat-square)](LICENSE)
-[![Windows 10+](https://img.shields.io/badge/Windows-10%2B-a78bfa?style=flat-square&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
-[![Rust](https://img.shields.io/badge/Built_with-Rust-a78bfa?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-
-<br>
-
-**Split panes. Tabbed workspaces. A socket API for AI agents.**<br>
-**One binary. Zero dependencies. Built with Rust + Tauri.**
-
-<br>
-
-[<img src="https://img.shields.io/badge/Download_wmux-v0.6.2-7c3aed?style=for-the-badge&logo=windows&logoColor=white" alt="Download">](https://github.com/fernandomenuk/wmux/releases/latest/download/wmux.msi)
-&nbsp;&nbsp;
-[<img src="https://img.shields.io/badge/View_Website-fernandomenuk.github.io-18181b?style=for-the-badge" alt="Website">](https://fernandomenuk.github.io/wmux)
+[![Release](https://img.shields.io/github/v/release/fernandomenuk/wmux?style=for-the-badge&color=7c3aed&labelColor=18181b)](https://github.com/fernandomenuk/wmux/releases)
+[![Stars](https://img.shields.io/github/stars/fernandomenuk/wmux?style=for-the-badge&color=7c3aed&labelColor=18181b)](https://github.com/fernandomenuk/wmux/stargazers)
+[![License](https://img.shields.io/badge/License-MIT-7c3aed?style=for-the-badge&labelColor=18181b)](LICENSE)
+[![Built with Rust](https://img.shields.io/badge/Rust-18181b?style=for-the-badge&logo=rust&logoColor=a78bfa)](https://www.rust-lang.org/)
 
 <br>
 
-```
- ┌──────────────────────────────────────────────────┐
- │ [ Project ] [ API ] [ Tests ]             [ + ]  │
- ├────────────────────────┬─────────────────────────┤
- │                        │                         │
- │  PS C:\project> _      │  PS C:\api> cargo test  │
- │                        │  running 75 tests...    │
- │                        │  test result: ok        │
- │                        │                         │
- ├────────────────────────┴─────────────────────────┤
- │ Shell: pwsh | WS: Project | Pane: 1 | CPU: 0.2% │
- └──────────────────────────────────────────────────┘
-```
+Split panes. Tabbed workspaces. A socket API for AI agents.<br>
+One native `.exe`. Zero dependencies. Built with Rust and Tauri.
+
+<br>
+
+[**Website**](https://fernandomenuk.github.io/wmux) · [**Download**](https://github.com/fernandomenuk/wmux/releases/latest/download/wmux.msi) · [**Releases**](https://github.com/fernandomenuk/wmux/releases) · [**Issues**](https://github.com/fernandomenuk/wmux/issues)
+
+<br>
 
 </div>
 
----
+## What is wmux?
 
-<br>
+**A native terminal multiplexer for Windows.** Split your terminal into panes, organize work into tabbed workspaces, and let AI agents control everything over a JSON-RPC socket — all from a single desktop app built in Rust.
 
-## Why wmux?
+> [!NOTE]
+> wmux is the Windows counterpart to [cmux](https://github.com/anthropics/cmux). Same protocol, native experience.
 
-Windows developers have been stuck without a proper multiplexer forever. tmux? Linux only. cmux? Also Linux. Screen? lol.
+## Get Started
 
-**wmux fixes that.** A native desktop app that just works on Windows.
+**Download the installer:**
 
-<table>
-<tr>
-<td width="50%">
+```
+https://github.com/fernandomenuk/wmux/releases/latest/download/wmux.msi
+```
 
-### What you get
-
-- **Graphical Split Panes** — vertical, horizontal, infinitely nestable
-- **Tabbed Workspaces** — organize your dev environments
-- **AI-First Socket API** — JSON-RPC over named pipes
-- **Any Shell** — PowerShell, CMD, WSL, nushell, you name it
-- **Blazing Fast** — Rust + ConPTY, near-zero overhead
-
-</td>
-<td width="50%">
-
-### What makes it different
-
-- **Not a CLI tool** — it's a real desktop app with a modern UI
-- **Built for AI agents** — Claude Code, Cursor, Copilot can control your terminals programmatically
-- **Windows-native** — ConPTY, named pipes, high-DPI, the whole deal
-- **Single binary** — no Node.js, no Python, no Electron bloat
-
-</td>
-</tr>
-</table>
-
-<br>
-
-## Quick Start
-
-### Download
-
-Grab the latest `.msi` installer from [Releases](https://github.com/fernandomenuk/wmux/releases/latest) and run it. Done.
-
-### Build from Source
+**Or build from source:**
 
 ```bash
 cargo install tauri-cli
@@ -93,83 +52,94 @@ cd wmux/crates/wmux-app
 cargo tauri build
 ```
 
-<br>
+## Features
+
+**Graphical Split Panes** — vertical and horizontal, infinitely nestable, with high-DPI support
+
+**Tabbed Workspaces** — create, rename, and switch between workspaces from the sidebar
+
+**AI-First Socket API** — JSON-RPC over Windows named pipes at `\\.\pipe\wmux`. Let Claude Code, Cursor, or Copilot control your terminals programmatically
+
+**Any Shell** — PowerShell, CMD, WSL, nushell — anything that runs on Windows
+
+**Command Palette** — quick actions with `Ctrl+Shift+P`
+
+**Blazing Fast** — Rust + ConPTY, near-zero overhead, no Electron
 
 ## Socket API
 
-This is what makes wmux special. AI agents can control your terminal sessions over a named pipe.
+The API is what makes wmux different. AI agents connect over a named pipe and control your terminal sessions with JSON-RPC.
 
 ```powershell
-# Connect
 $pipe = New-Object System.IO.Pipes.NamedPipeClientStream(".", "wmux", [System.IO.Pipes.PipeDirection]::InOut)
 $pipe.Connect(5000)
 ```
 
-Newline-delimited JSON-RPC. Compatible with [cmux](https://github.com/anthropics/cmux) protocol.
-
-| Method | What it does |
+| Method | Description |
 |---|---|
 | `workspace.create` | Create a new tabbed workspace |
 | `workspace.close` | Close a workspace by ID |
 | `surface.split` | Split the current pane |
 | `surface.send_text` | Send commands to a terminal |
 
-<br>
+Compatible with [cmux](https://github.com/anthropics/cmux) v2 protocol.
 
 ## Architecture
 
 ```
 wmux/
-├── wmux-core     # Engine: PTY management, layouts, state
-├── wmux-app      # Desktop app: Tauri + WebView UI
+├── wmux-core     # PTY management, layouts, state machine
+├── wmux-app      # Tauri desktop app with WebView UI
 └── wmux-cli      # Legacy CLI (archived)
 ```
-
-<br>
 
 ## Roadmap
 
 - [x] Graphical split panes
 - [x] Tabbed workspaces
 - [x] JSON-RPC socket API
-- [x] Command palette (`Ctrl+Shift+P`)
+- [x] Command palette
 - [x] Workspace sidebar
 - [ ] Drag-and-drop pane resizing
-- [ ] Theme support (Light / Dark / Custom)
-- [ ] Session persistence (Detach / Reattach)
+- [ ] Theme customization
+- [ ] Session persistence
 - [ ] Plugin system
-
-<br>
 
 ## Contributing
 
-PRs welcome. The codebase is clean Rust — dive in.
-
 ```bash
+cargo tauri dev     # Dev mode with hot reload
 cargo test          # Run the test suite
-cargo tauri dev     # Launch in dev mode with hot reload
 ```
-
-<br>
 
 ## License
 
-[MIT](LICENSE) — do whatever you want.
+[MIT](LICENSE)
 
 ---
 
 <div align="center">
 
-<img src="docs/logo.png" alt="wmux" width="48">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/logo.png" width="32">
+  <source media="(prefers-color-scheme: light)" srcset="docs/logo.png" width="32">
+  <img alt="wmux" src="docs/logo.png" width="32">
+</picture>
 
 <br><br>
 
 **Built for Windows developers who are tired of waiting.**
 
-If wmux helps you, [star the repo](https://github.com/fernandomenuk/wmux) — it helps others find it.
+[Star this repo](https://github.com/fernandomenuk/wmux) if wmux helps you — it helps others find it.
 
 <br>
 
-[Website](https://fernandomenuk.github.io/wmux) · [Releases](https://github.com/fernandomenuk/wmux/releases) · [Issues](https://github.com/fernandomenuk/wmux/issues)
+<a href="https://star-history.com/#fernandomenuk/wmux&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=fernandomenuk/wmux&type=Date&theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=fernandomenuk/wmux&type=Date">
+    <img alt="Star History" src="https://api.star-history.com/svg?repos=fernandomenuk/wmux&type=Date" width="600">
+  </picture>
+</a>
 
 </div>
