@@ -287,11 +287,37 @@ async fn window_close(app_handle: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 async fn get_workspace_root() -> Result<String, String> {
-    Ok(std::env::var("CLAUDE_SESSION_WORKSPACE")
-        .unwrap_or_else(|_| {
-            let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\".to_string());
-            format!("{}\\Claude Workspace", home)
-        }))
+    // 1. config.json 파일
+    let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\".to_string());
+    let config_path = format!("{}\\.claude-session-manager\\config.json", home);
+    if let Ok(content) = std::fs::read_to_string(&config_path) {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+            if let Some(root) = json.get("workspaceRoot").and_then(|v| v.as_str()) {
+                return Ok(root.to_string());
+            }
+        }
+    }
+    // 2. 환경변수
+    if let Ok(val) = std::env::var("CLAUDE_SESSION_WORKSPACE") {
+        return Ok(val);
+    }
+    // 3. 기본값
+    Ok(format!("{}\\Claude Workspace", home))
+}
+
+#[tauri::command]
+async fn get_config_path() -> Result<String, String> {
+    let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\".to_string());
+    Ok(format!("{}\\.claude-session-manager\\config.json", home))
+}
+
+#[tauri::command]
+async fn save_config(content: String) -> Result<(), String> {
+    let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\".to_string());
+    let dir = format!("{}\\.claude-session-manager", home);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = format!("{}\\config.json", dir);
+    std::fs::write(&path, &content).map_err(|e| e.to_string())
 }
 
 // ── File Access ──
@@ -374,6 +400,8 @@ fn main() {
             focus_direction,
             get_layout,
             get_workspace_root,
+            get_config_path,
+            save_config,
             read_file,
             write_file,
             window_minimize,
