@@ -3,55 +3,47 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>wmux</title>
+  <title>Claude Session Manager</title>
   <link rel="stylesheet" href="vendor/xterm.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Tab Bar -->
-  <div id="tab-bar">
-    <button id="sidebar-toggle" title="Toggle sidebar">&#9776;</button>
-    <div id="tabs"></div>
-    <button id="new-tab" title="New workspace">+</button>
-  </div>
+  <!-- Hover trigger -->
+  <div id="header-trigger"></div>
 
-  <div id="main-area">
-    <!-- Sidebar -->
-    <div id="sidebar">
-      <div id="workspace-list"></div>
-      <button id="sidebar-new-ws" title="New workspace">+ New Workspace</button>
+  <!-- App Header (hidden, shows on hover) -->
+  <div id="app-header" data-tauri-drag-region>
+    <span id="app-title">Claude Session Manager</span>
+    <div id="header-actions">
+      <button id="btn-settings" title="Settings">&#9881;</button>
+      <span class="header-sep"></span>
+      <button id="btn-minimize" title="Minimize">&#x2500;</button>
+      <button id="btn-maximize" title="Maximize">&#9633;</button>
+      <button id="btn-close" title="Close" class="close-btn">&#10005;</button>
     </div>
-
-    <!-- Terminal Pane Area -->
-    <div id="pane-area"></div>
   </div>
 
-  <!-- Command Palette -->
-  <div id="command-palette">
-    <input type="text" id="cp-input" placeholder="Type a command or search..." autocomplete="off">
-    <div id="cp-results"></div>
-  </div>
+  <!-- Terminal Pane Area -->
+  <div id="pane-area"></div>
 
-  <!-- Custom Input Modal -->
-  <div id="input-modal" class="modal">
-    <div class="modal-content">
-      <div id="modal-label"></div>
-      <input type="text" id="modal-input" autocomplete="off">
-      <div class="modal-buttons">
-        <button id="modal-cancel">Cancel</button>
-        <button id="modal-ok">OK</button>
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal-overlay" style="display:none">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span>Settings</span>
+        <button id="settings-close">X</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-group">
+          <label>Layout</label>
+          <div id="layout-options" class="option-row"></div>
+        </div>
+        <div class="setting-group">
+          <label>Font</label>
+          <div id="font-options" class="option-col"></div>
+        </div>
       </div>
     </div>
-  </div>
-
-  <!-- Status Bar -->
-  <div id="status-bar">
-    <span class="status-chip">Shell: <span id="status-shell" class="status-value"></span></span>
-    <span class="status-chip">WS: <span id="status-workspace" class="status-value"></span></span>
-    <span class="status-chip">Pane: <span id="status-pane" class="status-value"></span></span>
-    <span class="status-chip">CPU: <span id="status-cpu" class="status-value">0%</span></span>
-    <span class="status-chip">MEM: <span id="status-mem" class="status-value">0MB</span></span>
-    <span id="cmd-palette-hint" style="margin-left: auto; cursor: pointer; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 2px 8px; font-size: 11px; color: var(--text-bright); opacity: 0.7;" title="Command Palette">Ctrl+Shift+K</span>
   </div>
 
   <script type="module" src="main.js"></script>

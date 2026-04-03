@@ -4,14 +4,11 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use serde::Serialize;
 use std::sync::Arc;
-use std::path::PathBuf;
 use tauri::{Emitter, Manager};
 use tokio::sync::{mpsc, Mutex};
 use uuid::Uuid;
 use wmux_core::terminal::shell::detect_shell;
 use wmux_core::WmuxCore;
-
-mod socket;
 
 /// Shared application state accessible from Tauri commands
 ///
@@ -54,31 +51,8 @@ struct LayoutResult {
 }
 
 #[derive(Clone, Serialize)]
-struct TabInfo {
-    name: String,
-    is_active: bool,
-}
-
-#[derive(Clone, Serialize)]
-struct TabInfoResult {
-    tabs: Vec<TabInfo>,
-    active_index: usize,
-}
-
-#[derive(Clone, Serialize)]
 struct SplitResult {
     surface_id: String,
-}
-
-#[derive(Clone, Serialize)]
-struct MetricsResult {
-    cpu: f32,
-    memory: u64,
-}
-
-#[derive(Clone, Serialize)]
-struct CreateResult {
-    workspace_id: String,
 }
 
 #[derive(Clone, Serialize)]
@@ -232,81 +206,6 @@ async fn focus_direction(
 }
 
 #[tauri::command]
-async fn create_workspace(
-    app_handle: tauri::AppHandle,
-    state: tauri::State<'_, Arc<AppState>>,
-    name: Option<String>,
-) -> Result<CreateResult, String> {
-    let mut core = state.core.lock().await;
-    let (cols, rows) = core.terminal_size;
-    let ws_id = core
-        .create_workspace(name, &state.pty_tx, &state.exit_tx, cols, rows)
-        .map_err(|e| e.to_string())?;
-    let _ = app_handle.emit("layout-changed", ());
-    Ok(CreateResult {
-        workspace_id: ws_id.to_string(),
-    })
-}
-
-#[tauri::command]
-async fn switch_workspace(
-    app_handle: tauri::AppHandle,
-    state: tauri::State<'_, Arc<AppState>>,
-    index: usize,
-) -> Result<(), String> {
-    let mut core = state.core.lock().await;
-    core.switch_workspace(index);
-    let _ = app_handle.emit("layout-changed", ());
-    if let Some(focused) = core.focused_surface {
-        let _ = app_handle.emit(
-            "focus-changed",
-            FocusChangedPayload {
-                surface_id: focused.to_string(),
-            },
-        );
-    }
-    Ok(())
-}
-
-#[tauri::command]
-async fn next_workspace(
-    app_handle: tauri::AppHandle,
-    state: tauri::State<'_, Arc<AppState>>,
-) -> Result<(), String> {
-    let mut core = state.core.lock().await;
-    core.next_workspace();
-    let _ = app_handle.emit("layout-changed", ());
-    if let Some(focused) = core.focused_surface {
-        let _ = app_handle.emit(
-            "focus-changed",
-            FocusChangedPayload {
-                surface_id: focused.to_string(),
-            },
-        );
-    }
-    Ok(())
-}
-
-#[tauri::command]
-async fn prev_workspace(
-    app_handle: tauri::AppHandle,
-    state: tauri::State<'_, Arc<AppState>>,
-) -> Result<(), String> {
-    let mut core = state.core.lock().await;
-    core.prev_workspace();
-    let _ = app_handle.emit("layout-changed", ());
-    if let Some(focused) = core.focused_surface {
-        let _ = app_handle.emit(
-            "focus-changed",
-            FocusChangedPayload {
-                surface_id: focused.to_string(),
-            },
-        );
-    }
-    Ok(())
-}
-
-#[tauri::command]
 async fn get_layout(
     state: tauri::State<'_, Arc<AppState>>,
     width: u16,
@@ -360,116 +259,40 @@ async fn get_layout(
     })
 }
 
+// ── Window Controls ──
+
 #[tauri::command]
-async fn get_tab_info(state: tauri::State<'_, Arc<AppState>>) -> Result<TabInfoResult, String> {
-    let core = state.core.lock().await;
-    let tabs: Vec<TabInfo> = core
-        .tab_info()
-        .into_iter()
-        .map(|(name, is_active)| TabInfo { name, is_active })
-        .collect();
-    let active_index = core.active_workspace;
-    Ok(TabInfoResult { tabs, active_index })
+async fn window_minimize(app_handle: tauri::AppHandle) -> Result<(), String> {
+    let win = app_handle.get_webview_window("main").ok_or("No window")?;
+    win.minimize().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-async fn toggle_zoom(
-    app_handle: tauri::AppHandle,
-    state: tauri::State<'_, Arc<AppState>>,
-) -> Result<(), String> {
-    let mut core = state.core.lock().await;
-    core.toggle_zoom();
-    let _ = app_handle.emit("layout-changed", ());
-    Ok(())
-}
-
-#[tauri::command]
-async fn get_process_metrics(
-    state: tauri::State<'_, Arc<AppState>>,
-    surface_id: String,
-) -> Result<MetricsResult, String> {
-    let mut core = state.core.lock().await;
-    let id = Uuid::parse_str(&surface_id).map_err(|e| e.to_string())?;
-    match core.get_process_metrics(id) {
-        Some((cpu, memory)) => Ok(MetricsResult { cpu, memory }),
-        None => Err("Process not found or PID 0".to_string()),
-    }
-}
-
-#[tauri::command]
-async fn rename_workspace(
-    app_handle: tauri::AppHandle,
-    state: tauri::State<'_, Arc<AppState>>,
-    index: usize,
-    name: String,
-) -> Result<(), String> {
-    let mut core = state.core.lock().await;
-    core.rename_workspace(index, name);
-    let _ = app_handle.emit("layout-changed", ());
-    Ok(())
-}
-
-#[tauri::command]
-async fn close_workspace(
-    app_handle: tauri::AppHandle,
-    state: tauri::State<'_, Arc<AppState>>,
-    index: usize,
-) -> Result<CloseResult, String> {
-    let mut core = state.core.lock().await;
-    let should_quit = core.close_workspace(index);
-    let _ = app_handle.emit("layout-changed", ());
-    Ok(CloseResult { should_quit })
-}
-
-#[tauri::command]
-async fn setup_claude_code(app_handle: tauri::AppHandle) -> Result<String, String> {
-    // Find the bundled MCP server
-    let resource_dir = app_handle
-        .path()
-        .resource_dir()
-        .map_err(|e| e.to_string())?;
-    let mcp_entry = resource_dir.join("mcp").join("bundle.js");
-
-    if !mcp_entry.exists() {
-        return Err("MCP server files not found. Reinstall wmux.".into());
-    }
-
-    // Claude Code MCP config: %USERPROFILE%\.claude.json
-    let home = std::env::var("USERPROFILE").map_err(|_| "Cannot find home directory")?;
-    let settings_path = PathBuf::from(&home).join(".claude.json");
-
-    // Read existing config or start fresh
-    let mut settings: serde_json::Value = if settings_path.exists() {
-        let content = std::fs::read_to_string(&settings_path).map_err(|e| e.to_string())?;
-        serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+async fn window_maximize(app_handle: tauri::AppHandle) -> Result<(), String> {
+    let win = app_handle.get_webview_window("main").ok_or("No window")?;
+    if win.is_maximized().unwrap_or(false) {
+        win.unmaximize().map_err(|e| e.to_string())
     } else {
-        serde_json::json!({})
-    };
-
-    // Add/update wmux MCP server config
-    // Strip Windows UNC prefix (\\?\) that Tauri adds
-    let mcp_path = mcp_entry.to_string_lossy()
-        .replace('\\', "/")
-        .replace("///?/", "");
-    let mcp_config = serde_json::json!({
-        "command": "node",
-        "args": [mcp_path]
-    });
-
-    if let Some(obj) = settings.as_object_mut() {
-        let servers = obj
-            .entry("mcpServers")
-            .or_insert(serde_json::json!({}));
-        if let Some(servers_obj) = servers.as_object_mut() {
-            servers_obj.insert("wmux".into(), mcp_config);
-        }
+        win.maximize().map_err(|e| e.to_string())
     }
+}
 
-    // Write back
-    let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
-    std::fs::write(&settings_path, json).map_err(|e| e.to_string())?;
+#[tauri::command]
+async fn window_close(app_handle: tauri::AppHandle) -> Result<(), String> {
+    let win = app_handle.get_webview_window("main").ok_or("No window")?;
+    win.close().map_err(|e| e.to_string())
+}
 
-    Ok(format!("Connected! Config written to {}", settings_path.display()))
+// ── File Access ──
+
+#[tauri::command]
+async fn read_file(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn write_file(path: String, content: String) -> Result<(), String> {
+    std::fs::write(&path, &content).map_err(|e| e.to_string())
 }
 
 // ── App Setup ──
@@ -499,16 +322,6 @@ fn main() {
                 exit_tx,
             });
             app.manage(state.clone());
-
-            // Start Socket API Server (AI Agent support)
-            let socket_handle = app_handle.clone();
-            let socket_state = state.clone();
-            tauri::async_runtime::spawn(async move {
-                let pipe_path = r"\\.\pipe\wmux".to_string();
-                if let Err(e) = socket::server::start_pipe_server(socket_handle, socket_state, pipe_path).await {
-                    eprintln!("Failed to start socket server: {}", e);
-                }
-            });
 
             // Spawn channel-to-event bridge
             let bridge_state = state.clone();
@@ -548,17 +361,12 @@ fn main() {
             close_pane,
             focus_pane,
             focus_direction,
-            create_workspace,
-            switch_workspace,
-            next_workspace,
-            prev_workspace,
             get_layout,
-            get_tab_info,
-            toggle_zoom,
-            get_process_metrics,
-            rename_workspace,
-            close_workspace,
-            setup_claude_code,
+            read_file,
+            write_file,
+            window_minimize,
+            window_maximize,
+            window_close,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

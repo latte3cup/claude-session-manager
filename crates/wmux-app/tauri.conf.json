@@ -1,7 +1,7 @@
 {
-  "productName": "wmux",
-  "version": "0.7.0",
-  "identifier": "com.wmux.app",
+  "productName": "Claude Session Manager",
+  "version": "0.1.0",
+  "identifier": "com.claude-session-manager.app",
   "build": {
     "frontendDist": "./frontend"
   },
@@ -9,11 +9,12 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "wmux",
+        "title": "Claude Session Manager",
         "width": 900,
         "height": 600,
         "minWidth": 400,
-        "minHeight": 300
+        "minHeight": 300,
+        "decorations": false
       }
     ],
     "security": {
