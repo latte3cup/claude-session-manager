@@ -283,6 +283,17 @@ async fn window_close(app_handle: tauri::AppHandle) -> Result<(), String> {
     win.close().map_err(|e| e.to_string())
 }
 
+// ── Config ──
+
+#[tauri::command]
+async fn get_workspace_root() -> Result<String, String> {
+    Ok(std::env::var("CLAUDE_SESSION_WORKSPACE")
+        .unwrap_or_else(|_| {
+            let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\".to_string());
+            format!("{}\\Claude Workspace", home)
+        }))
+}
+
 // ── File Access ──
 
 #[tauri::command]
@@ -362,6 +373,7 @@ fn main() {
             focus_pane,
             focus_direction,
             get_layout,
+            get_workspace_root,
             read_file,
             write_file,
             window_minimize,

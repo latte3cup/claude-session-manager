@@ -84,9 +84,17 @@ async function init() {
 // === Session Management ===
 
 const SESSION_FOLDERS = ['session1', 'session2', 'session3', 'session4'];
-const WORKSPACE_ROOT = 'C:\\Workspaces\\Claude Workspace';
+let WORKSPACE_ROOT = '';
 
 async function setupSessions() {
+  // workspace root 가져오기
+  WORKSPACE_ROOT = await invoke('get_workspace_root');
+
+  // 세션 폴더 자동 생성
+  for (const folder of SESSION_FOLDERS) {
+    try { await invoke('write_file', { path: `${WORKSPACE_ROOT}\\${folder}\\.keep`, content: '' }); } catch {}
+  }
+
   // 3번 split해서 4분할
   // 1. vertical split → 좌/우
   await invoke('split_pane', { direction: 'vertical' });

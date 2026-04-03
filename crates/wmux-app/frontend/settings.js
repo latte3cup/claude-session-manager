@@ -1,6 +1,13 @@
 const { invoke } = window.__TAURI__.core;
 
-const SETTINGS_PATH = 'C:\\Workspaces\\Claude Workspace\\claude-session-manager\\app-settings.json';
+let SETTINGS_PATH = '';
+
+async function ensureSettingsPath() {
+  if (!SETTINGS_PATH) {
+    const root = await invoke('get_workspace_root');
+    SETTINGS_PATH = `${root}\\app-settings.json`;
+  }
+}
 
 const LAYOUT_OPTIONS = [
   { value: 2, label: '2 패널' },
@@ -21,6 +28,7 @@ export function setOnSettingsChange(callback) { onSettingsChange = callback; }
 export function getSettings() { return appSettings; }
 
 export async function loadSettings() {
+  await ensureSettingsPath();
   try {
     const text = await invoke('read_file', { path: SETTINGS_PATH });
     appSettings = { ...appSettings, ...JSON.parse(text) };
@@ -29,6 +37,7 @@ export async function loadSettings() {
 }
 
 async function saveSettings() {
+  await ensureSettingsPath();
   try {
     await invoke('write_file', { path: SETTINGS_PATH, content: JSON.stringify(appSettings, null, 2) });
   } catch {}
