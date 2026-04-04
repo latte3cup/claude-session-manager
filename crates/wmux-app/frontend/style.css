@@ -291,6 +291,15 @@ body { display: flex; flex-direction: column; }
 .opt-btn.active { border-color: var(--accent); background: rgba(38,139,210,0.1); color: var(--accent); }
 .opt-btn .font-preview { font-size: 10px; color: var(--text); margin-left: 8px; }
 
+.save-area { display: flex; justify-content: flex-end; padding-top: 8px; border-top: 1px solid var(--border); }
+.save-btn {
+  padding: 8px 24px; font-size: 12px; border-radius: 4px; cursor: pointer;
+  border: 1px solid var(--accent); background: rgba(38,139,210,0.15); color: var(--accent);
+  font-weight: 600; transition: all 200ms;
+}
+.save-btn:hover { background: rgba(38,139,210,0.3); }
+.save-btn.disabled { opacity: 0.3; cursor: default; border-color: var(--border); color: var(--text); background: transparent; }
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
