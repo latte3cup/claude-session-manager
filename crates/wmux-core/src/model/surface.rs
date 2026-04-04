@@ -1,7 +1,7 @@
+use crate::terminal::pty::PtyHandle;
+use std::io::Write;
 use uuid::Uuid;
 use vt100::Parser;
-use std::io::Write;
-use crate::terminal::pty::PtyHandle;
 
 #[allow(dead_code)]
 pub struct Surface {
@@ -81,10 +81,12 @@ impl Surface {
             "Ctrl+Z" => "\x1a",
             "Ctrl+L" => "\x0c",
             "Ctrl+A" => "\x01",
-            _ => return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!("Unknown key: {}", key),
-            )),
+            _ => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("Unknown key: {}", key),
+                ))
+            }
         };
         self.send_text(bytes)
     }

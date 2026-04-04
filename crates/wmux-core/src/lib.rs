@@ -4,7 +4,7 @@ pub mod model;
 pub mod socket;
 pub mod terminal;
 
-pub use crate::core::{WmuxCore, SurfaceId, WorkspaceId, FocusDirection};
+pub use crate::core::{FocusDirection, SurfaceId, WmuxCore, WorkspaceId};
 pub use crate::error::WmuxError;
 
 // Re-export vt100 for frontend convenience

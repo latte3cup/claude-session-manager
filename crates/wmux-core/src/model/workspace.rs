@@ -1,5 +1,5 @@
-use uuid::Uuid;
 use crate::model::split_tree::SplitNode;
+use uuid::Uuid;
 
 pub struct Workspace {
     pub id: Uuid,
@@ -12,7 +12,9 @@ impl Workspace {
         Self {
             id: Uuid::new_v4(),
             name,
-            split_tree: SplitNode::Leaf { surface_id: initial_surface_id },
+            split_tree: SplitNode::Leaf {
+                surface_id: initial_surface_id,
+            },
         }
     }
 }

@@ -15,28 +15,37 @@ pub fn dispatch(
     match req.method.as_str() {
         "system.ping" => Response::success(req.id.clone(), json!({"pong": true})),
 
-        "system.capabilities" => Response::success(req.id.clone(), json!({
-            "version": "0.1.0",
-            "commands": [
-                "system.ping", "system.capabilities",
-                "workspace.list", "workspace.create", "workspace.select",
-                "workspace.current", "workspace.close",
-                "surface.list", "surface.split", "surface.focus",
-                "surface.close", "surface.send_text", "surface.send_key",
-                "surface.read_output"
-            ]
-        })),
+        "system.capabilities" => Response::success(
+            req.id.clone(),
+            json!({
+                "version": "0.1.0",
+                "commands": [
+                    "system.ping", "system.capabilities",
+                    "workspace.list", "workspace.create", "workspace.select",
+                    "workspace.current", "workspace.close",
+                    "surface.list", "surface.split", "surface.focus",
+                    "surface.close", "surface.send_text", "surface.send_key",
+                    "surface.read_output"
+                ]
+            }),
+        ),
 
         "workspace.list" => {
-            let workspaces: Vec<Value> = core.workspaces.iter().enumerate().map(|(i, ws)| {
-                json!({"id": ws.id.to_string(), "name": ws.name, "index": i})
-            }).collect();
+            let workspaces: Vec<Value> = core
+                .workspaces
+                .iter()
+                .enumerate()
+                .map(|(i, ws)| json!({"id": ws.id.to_string(), "name": ws.name, "index": i}))
+                .collect();
             Response::success(req.id.clone(), json!({"workspaces": workspaces}))
         }
 
         "workspace.create" => {
             let params = req.params.as_ref().unwrap_or(&Value::Null);
-            let name = params.get("name").and_then(|v| v.as_str()).map(String::from);
+            let name = params
+                .get("name")
+                .and_then(|v| v.as_str())
+                .map(String::from);
             let (cols, rows) = core.terminal_size;
             match core.create_workspace(name, pty_tx, exit_tx, cols, rows) {
                 Ok(ws_id) => Response::success(req.id.clone(), json!({"id": ws_id.to_string()})),
@@ -51,9 +60,8 @@ pub fn dispatch(
                 Ok(id) => {
                     if let Some(idx) = core.workspaces.iter().position(|ws| ws.id == id) {
                         core.active_workspace = idx;
-                        core.focused_surface = Some(
-                            core.workspaces[idx].split_tree.first_surface(),
-                        );
+                        core.focused_surface =
+                            Some(core.workspaces[idx].split_tree.first_surface());
                         Response::success(req.id.clone(), json!({}))
                     } else {
                         Response::error(req.id.clone(), "not_found", "Workspace not found")
@@ -65,11 +73,14 @@ pub fn dispatch(
 
         "workspace.current" => {
             if let Some(ws) = core.active_workspace_ref() {
-                Response::success(req.id.clone(), json!({
-                    "id": ws.id.to_string(),
-                    "name": ws.name,
-                    "index": core.active_workspace
-                }))
+                Response::success(
+                    req.id.clone(),
+                    json!({
+                        "id": ws.id.to_string(),
+                        "name": ws.name,
+                        "index": core.active_workspace
+                    }),
+                )
             } else {
                 Response::error(req.id.clone(), "no_workspace", "No active workspace")
             }
@@ -89,9 +100,12 @@ pub fn dispatch(
                         if core.workspaces.is_empty() {
                             core.request_quit();
                         } else {
-                            core.active_workspace = core.active_workspace.min(core.workspaces.len() - 1);
+                            core.active_workspace =
+                                core.active_workspace.min(core.workspaces.len() - 1);
                             core.focused_surface = Some(
-                                core.workspaces[core.active_workspace].split_tree.first_surface(),
+                                core.workspaces[core.active_workspace]
+                                    .split_tree
+                                    .first_surface(),
                             );
                         }
                         Response::success(req.id.clone(), json!({}))
@@ -108,20 +122,25 @@ pub fn dispatch(
             let ws_id_str = params.get("workspace_id").and_then(|v| v.as_str());
 
             let ws = if let Some(id_str) = ws_id_str {
-                Uuid::parse_str(id_str).ok().and_then(|id| {
-                    core.workspaces.iter().find(|ws| ws.id == id)
-                })
+                Uuid::parse_str(id_str)
+                    .ok()
+                    .and_then(|id| core.workspaces.iter().find(|ws| ws.id == id))
             } else {
                 core.active_workspace_ref()
             };
 
             if let Some(ws) = ws {
-                let surfaces: Vec<Value> = ws.split_tree.surface_ids().iter().map(|id| {
-                    json!({
-                        "id": id.to_string(),
-                        "focused": core.focused_surface == Some(*id)
+                let surfaces: Vec<Value> = ws
+                    .split_tree
+                    .surface_ids()
+                    .iter()
+                    .map(|id| {
+                        json!({
+                            "id": id.to_string(),
+                            "focused": core.focused_surface == Some(*id)
+                        })
                     })
-                }).collect();
+                    .collect();
                 Response::success(req.id.clone(), json!({"surfaces": surfaces}))
             } else {
                 Response::error(req.id.clone(), "not_found", "Workspace not found")
@@ -130,7 +149,10 @@ pub fn dispatch(
 
         "surface.split" => {
             let params = req.params.as_ref().unwrap_or(&Value::Null);
-            let dir_str = params.get("direction").and_then(|v| v.as_str()).unwrap_or("vertical");
+            let dir_str = params
+                .get("direction")
+                .and_then(|v| v.as_str())
+                .unwrap_or("vertical");
             let direction = match dir_str {
                 "horizontal" => Direction::Horizontal,
                 _ => Direction::Vertical,
@@ -138,7 +160,9 @@ pub fn dispatch(
             let (cols, rows) = core.terminal_size;
             match core.split_surface(direction, pty_tx, exit_tx, cols, rows) {
                 Ok(Some(id)) => Response::success(req.id.clone(), json!({"id": id.to_string()})),
-                Ok(None) => Response::error(req.id.clone(), "no_focus", "No focused surface to split"),
+                Ok(None) => {
+                    Response::error(req.id.clone(), "no_focus", "No focused surface to split")
+                }
                 Err(e) => Response::error(req.id.clone(), "split_failed", &e.to_string()),
             }
         }
@@ -184,7 +208,9 @@ pub fn dispatch(
                     if let Some(surface) = core.surfaces.get_mut(&id) {
                         match surface.send_text(text) {
                             Ok(_) => Response::success(req.id.clone(), json!({})),
-                            Err(e) => Response::error(req.id.clone(), "send_failed", &e.to_string()),
+                            Err(e) => {
+                                Response::error(req.id.clone(), "send_failed", &e.to_string())
+                            }
                         }
                     } else {
                         Response::error(req.id.clone(), "not_found", "Surface not found")
@@ -203,7 +229,9 @@ pub fn dispatch(
                     if let Some(surface) = core.surfaces.get_mut(&id) {
                         match surface.send_key(key) {
                             Ok(_) => Response::success(req.id.clone(), json!({})),
-                            Err(e) => Response::error(req.id.clone(), "send_failed", &e.to_string()),
+                            Err(e) => {
+                                Response::error(req.id.clone(), "send_failed", &e.to_string())
+                            }
                         }
                     } else {
                         Response::error(req.id.clone(), "not_found", "Surface not found")
@@ -216,7 +244,10 @@ pub fn dispatch(
         "surface.read_output" => {
             let params = req.params.as_ref().unwrap_or(&Value::Null);
             let id_str = params.get("id").and_then(|v| v.as_str()).unwrap_or("");
-            let max_rows = params.get("rows").and_then(|v| v.as_u64()).map(|n| n as usize);
+            let max_rows = params
+                .get("rows")
+                .and_then(|v| v.as_u64())
+                .map(|n| n as usize);
             match Uuid::parse_str(id_str) {
                 Ok(id) => {
                     if let Some(surface) = core.surfaces.get(&id) {
@@ -230,6 +261,10 @@ pub fn dispatch(
             }
         }
 
-        _ => Response::error(req.id.clone(), "unknown_method", &format!("Unknown method: {}", req.method)),
+        _ => Response::error(
+            req.id.clone(),
+            "unknown_method",
+            &format!("Unknown method: {}", req.method),
+        ),
     }
 }

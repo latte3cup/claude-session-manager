@@ -19,7 +19,7 @@ pub enum FocusDirection {
     Right,
 }
 
-use sysinfo::{System, Pid};
+use sysinfo::{Pid, System};
 
 pub struct WmuxCore {
     pub workspaces: Vec<Workspace>,
