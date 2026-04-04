@@ -1,7 +1,4 @@
-use crossterm::event::{
-    KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent,
-    MouseEventKind,
-};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use wmux::input::{key_event_to_bytes, mouse_event_to_sgr_bytes, Action, InputHandler};
 
 fn key(code: KeyCode) -> KeyEvent {
