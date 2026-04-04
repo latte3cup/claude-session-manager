@@ -25,6 +25,7 @@ body { display: flex; flex-direction: column; }
   position: relative;
   overflow: hidden;
   background: #001e26;
+  margin-top: 20px;
 }
 .pane {
   position: absolute;
@@ -235,22 +236,19 @@ body { display: flex; flex-direction: column; }
 
 /* App Header */
 #header-trigger {
-  position: fixed; top: 0; left: 0; right: 0; height: 6px; z-index: 100;
+  display: none;
 }
 #app-header {
   position: fixed; top: 0; left: 0; right: 0; z-index: 99;
-  height: 32px;
+  height: 20px;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
-  transform: translateY(-100%);
-  transition: transform 200ms ease;
+  padding: 0 8px;
 }
-#app-header.visible { transform: translateY(0); }
-#app-title { font-size: 12px; font-weight: 600; color: var(--text-bright); }
+#app-title { font-size: 11px; font-weight: 600; color: var(--text-bright); }
 #header-actions { display: flex; gap: 4px; }
 #header-actions button {
   background: none; border: none; color: var(--text); font-size: 14px;
