@@ -61,7 +61,7 @@ export function createTerminal(surfaceId) {
     fontFamily: "'Cascadia Code', 'Malgun Gothic', monospace",
     fontSize: 12,
     theme: THEME,
-    allowTransparency: true,
+    allowTransparency: false,
   });
 
   const fitAddon = new FitAddon();

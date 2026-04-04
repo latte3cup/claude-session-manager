@@ -35,11 +35,9 @@ body { display: flex; flex-direction: column; }
   flex-direction: column;
   transition: all 200ms ease;
 }
-.pane:not(.focused) { opacity: 0.9; }
 .pane.focused {
   border-color: var(--accent);
   z-index: 2;
-  opacity: 1;
 }
 
 /* Pane Title Bar */
