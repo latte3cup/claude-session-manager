@@ -235,9 +235,6 @@ body { display: flex; flex-direction: column; }
 .toggle-btn.off { background: rgba(220, 50, 47, 0.2); color: var(--red); }
 
 /* App Header */
-#header-trigger {
-  display: none;
-}
 #app-header {
   position: fixed; top: 0; left: 0; right: 0; z-index: 99;
   height: 20px;
@@ -295,7 +292,7 @@ body { display: flex; flex-direction: column; }
   border: 1px solid var(--accent); background: rgba(38,139,210,0.15); color: var(--accent);
   font-weight: 600; transition: all 200ms;
 }
-.save-btn:hover { background: rgba(38,139,210,0.3); }
+.save-btn:not(.disabled):hover { background: rgba(38,139,210,0.3); }
 .save-btn.disabled { opacity: 0.3; cursor: default; border-color: var(--border); color: var(--text); background: transparent; }
 
 /* Scrollbar */

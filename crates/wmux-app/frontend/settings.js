@@ -76,16 +76,6 @@ export function setupSettings() {
   });
   btnClose.addEventListener('click', () => { modal.style.display = 'none'; });
   modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
-
-  // Header hover
-  const header = document.getElementById('app-header');
-  const trigger = document.getElementById('header-trigger');
-  let hideTimeout;
-  const show = () => { clearTimeout(hideTimeout); header.classList.add('visible'); };
-  const hide = () => { hideTimeout = setTimeout(() => header.classList.remove('visible'), 400); };
-  trigger.addEventListener('mouseenter', show);
-  header.addEventListener('mouseenter', show);
-  header.addEventListener('mouseleave', hide);
 }
 
 function renderOptions() {
