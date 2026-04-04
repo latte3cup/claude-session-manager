@@ -27,6 +27,7 @@ const THEME = {
 
 const terminals = new Map();
 let focusedId = null;
+let currentFontFamily = "'Cascadia Code', 'Malgun Gothic', monospace";
 let onInputCallback = null;
 let onNewTerminalCallback = null;
 let onFontSizeChangeCallback = null;
@@ -46,6 +47,7 @@ export function setFontSize(surfaceId, size) {
 }
 
 export function setAllFontFamily(fontFamily) {
+  currentFontFamily = fontFamily;
   for (const entry of terminals.values()) {
     entry.term.options.fontFamily = fontFamily;
     entry.fitAddon.fit();
@@ -58,7 +60,7 @@ export function createTerminal(surfaceId) {
 
   const term = new Terminal({
     cursorBlink: true,
-    fontFamily: "'Cascadia Code', 'Malgun Gothic', monospace",
+    fontFamily: currentFontFamily,
     fontSize: 12,
     theme: THEME,
     allowTransparency: false,

@@ -85,6 +85,9 @@ async function init() {
   // 창이 완전히 렌더링될 때까지 대기
   await sleep(500);
 
+  // 저장된 폰트 설정 적용
+  tm.setAllFontFamily(getSettings().fontFamily);
+
   // Initial load
   await refreshLayout();
 
