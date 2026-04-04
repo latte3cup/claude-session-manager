@@ -197,74 +197,93 @@ async function setupSessions() {
 }
 
 async function changeLayout(newCount) {
-  const oldCount = currentPaneCount;
+  // 첫 번째 pane만 유지, 나머지 닫고 새로 분할
+  const layout = await invoke('get_layout', { width: 200, height: 50 });
+  const currentIds = layout.panes.map(p => p.surface_id);
 
-  if (newCount < oldCount) {
-    // 축소: 뒤에서부터 초과분 닫기
-    const layout = await invoke('get_layout', { width: 200, height: 50 });
-    const currentIds = layout.panes.map(p => p.surface_id);
-    for (let i = currentIds.length - 1; i >= newCount; i--) {
-      await invoke('close_pane', { surfaceId: currentIds[i] });
-      tm.destroyTerminal(currentIds[i]);
-      delete sessionMetas[i];
-      delete sessionSurfaceMap[i];
-    }
+  // 첫 번째 빼고 전부 닫기
+  for (let i = currentIds.length - 1; i >= 1; i--) {
+    await invoke('close_pane', { surfaceId: currentIds[i] });
+    tm.destroyTerminal(currentIds[i]);
+    delete sessionMetas[i];
+    delete sessionSurfaceMap[i];
+  }
+  await refreshLayout();
+  await sleep(300);
+
+  const folders = SESSION_FOLDERS.slice(0, newCount);
+
+  // setupSessions와 동일한 분할 로직
+  if (newCount >= 2) {
+    await invoke('split_pane', { direction: 'vertical' });
     await refreshLayout();
-  } else {
-    // 확장: 부족한 만큼 split 추가
-    for (let i = oldCount; i < newCount; i++) {
-      // 마지막 pane에 포커스 후 split
-      const layout = await invoke('get_layout', { width: 200, height: 50 });
-      const lastId = layout.panes[layout.panes.length - 1].surface_id;
-      await invoke('focus_pane', { surfaceId: lastId });
-      await sleep(100);
-      // 짝수번째면 horizontal, 홀수면 vertical
-      const dir = (i % 2 === 0) ? 'vertical' : 'horizontal';
-      await invoke('split_pane', { direction: dir });
-      await refreshLayout();
-      await sleep(300);
+    await sleep(300);
+  }
+  if (newCount >= 3) {
+    await invoke('focus_direction', { direction: 'right' });
+    await sleep(100);
+    await invoke('split_pane', { direction: 'vertical' });
+    await invoke('set_split_ratio', { path: [], ratio: 0.333 });
+    await refreshLayout();
+    await sleep(300);
+  }
+  if (newCount >= 4) {
+    // 좌측 2개를 horizontal split
+    await invoke('focus_direction', { direction: 'left' });
+    await invoke('focus_direction', { direction: 'left' });
+    await sleep(100);
+    await invoke('split_pane', { direction: 'horizontal' });
+    await refreshLayout();
+    await sleep(100);
+    // 우측 2개를 horizontal split
+    await invoke('focus_direction', { direction: 'right' });
+    await invoke('focus_direction', { direction: 'right' });
+    await sleep(100);
+    await invoke('split_pane', { direction: 'horizontal' });
+    await invoke('set_split_ratio', { path: [], ratio: 0.5 });
+    await refreshLayout();
+    await sleep(300);
+  }
+
+  // 새 pane들에 세션 설정 (첫 번째는 유지)
+  const newLayout = await invoke('get_layout', { width: 200, height: 50 });
+  const surfaceIds = newLayout.panes.map(p => p.surface_id);
+
+  for (let i = 1; i < Math.min(surfaceIds.length, folders.length); i++) {
+    const sid = surfaceIds[i];
+    const folder = folders[i];
+    try { await invoke('write_file', { path: `${WORKSPACE_ROOT}\\${folder}\\.keep`, content: '' }); } catch {}
+    const meta = await loadSessionMeta(folder);
+    sessionMetas[i] = meta;
+    sessionSurfaceMap[i] = sid;
+
+    tm.setTitle(sid, meta.title || folder);
+    if (meta.fontSize) tm.setFontSize(sid, meta.fontSize);
+
+    const titleBar = tm.getTitleBar(sid);
+    if (titleBar) {
+      const idx = i;
+      titleBar.addEventListener('contextmenu', (e) => {
+        const m = sessionMetas[idx] || {};
+        showContextMenu(e, sid, idx, m, {
+          onStop: () => invoke('send_input', { surfaceId: sid, data: '\x03' }),
+          onStart: () => {},
+          onRestart: () => invoke('send_input', { surfaceId: sid, data: '\x03' }),
+          onMetaSave: saveSessionMeta,
+        });
+      });
     }
 
-    // 새로 생긴 pane들에 세션 설정
-    const layout = await invoke('get_layout', { width: 200, height: 50 });
-    const surfaceIds = layout.panes.map(p => p.surface_id);
+    const cdCmd = `cd /d "${WORKSPACE_ROOT}\\${folder}"\r`;
+    await invoke('send_input', { surfaceId: sid, data: cdCmd });
 
-    for (let i = oldCount; i < Math.min(surfaceIds.length, newCount); i++) {
-      const sid = surfaceIds[i];
-      const folder = SESSION_FOLDERS[i];
-      try { await invoke('write_file', { path: `${WORKSPACE_ROOT}\\${folder}\\.keep`, content: '' }); } catch {}
-      const meta = await loadSessionMeta(folder);
-      sessionMetas[i] = meta;
-      sessionSurfaceMap[i] = sid;
+    if (meta.autoCommand) {
+      await sleep(500);
+      await invoke('send_input', { surfaceId: sid, data: meta.autoCommand + '\r' });
+    }
 
-      tm.setTitle(sid, meta.title || folder);
-      if (meta.fontSize) tm.setFontSize(sid, meta.fontSize);
-
-      const titleBar = tm.getTitleBar(sid);
-      if (titleBar) {
-        const idx = i;
-        titleBar.addEventListener('contextmenu', (e) => {
-          const m = sessionMetas[idx] || {};
-          showContextMenu(e, sid, idx, m, {
-            onStop: () => invoke('send_input', { surfaceId: sid, data: '\x03' }),
-            onStart: () => {},
-            onRestart: () => invoke('send_input', { surfaceId: sid, data: '\x03' }),
-            onMetaSave: saveSessionMeta,
-          });
-        });
-      }
-
-      const cdCmd = `cd /d "${WORKSPACE_ROOT}\\${folder}"\r`;
-      await invoke('send_input', { surfaceId: sid, data: cdCmd });
-
-      if (meta.autoCommand) {
-        await sleep(500);
-        await invoke('send_input', { surfaceId: sid, data: meta.autoCommand + '\r' });
-      }
-
-      if (meta.postMacroEnabled && meta.postMacro && meta.postMacro.length > 0) {
-        runMacro(sid, meta.postMacro, meta.autoCommand ? 500 : 0);
-      }
+    if (meta.postMacroEnabled && meta.postMacro && meta.postMacro.length > 0) {
+      runMacro(sid, meta.postMacro, meta.autoCommand ? 500 : 0);
     }
   }
 }
