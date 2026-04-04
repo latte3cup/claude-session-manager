@@ -47,7 +47,10 @@ async function saveSettings() {
 export function setupWindowControls() {
   document.getElementById('btn-minimize')?.addEventListener('click', (e) => { e.stopPropagation(); invoke('window_minimize'); });
   document.getElementById('btn-maximize')?.addEventListener('click', (e) => { e.stopPropagation(); invoke('window_maximize'); });
-  document.getElementById('btn-close')?.addEventListener('click', (e) => { e.stopPropagation(); invoke('window_close'); });
+  document.getElementById('btn-close')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showConfirmModal('모든 세션이 종료됩니다.\n앱을 닫으시겠습니까?', () => invoke('window_close'));
+  });
 
   const header = document.getElementById('app-header');
   header?.addEventListener('mousedown', (e) => {
