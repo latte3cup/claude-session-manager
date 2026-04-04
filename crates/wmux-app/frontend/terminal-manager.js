@@ -168,6 +168,16 @@ export function createTerminal(surfaceId) {
     window.__TAURI__.core.invoke('focus_pane', { surfaceId });
   });
 
+  // 터미널 영역 우클릭 → 붙여넣기
+  container.addEventListener('contextmenu', (e) => {
+    if (e.target.closest('.pane-title')) return; // 타이틀바는 컨텍스트 메뉴 유지
+    e.preventDefault();
+    e.stopPropagation();
+    navigator.clipboard.readText().then((text) => {
+      if (text && onInputCallback) onInputCallback(surfaceId, text);
+    });
+  });
+
   const entry = { term, fitAddon, container };
   terminals.set(surfaceId, entry);
   return entry;
