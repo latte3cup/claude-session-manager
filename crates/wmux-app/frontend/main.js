@@ -122,27 +122,35 @@ async function setupSessions() {
     try { await invoke('write_file', { path: `${WORKSPACE_ROOT}\\${folder}\\.keep`, content: '' }); } catch {}
   }
 
-  // activePanes에 따라 분할
-  if (paneCount >= 2) {
-    // 1. vertical split → 좌/우
+  // activePanes에 따라 분할 (각 레이아웃은 독립적)
+  if (paneCount === 2) {
+    // 좌/우
     await invoke('split_pane', { direction: 'vertical' });
     await refreshLayout();
     await sleep(500);
-  }
-
-  if (paneCount >= 3) {
-    // 2. 우측에 vertical split → 좌/중/우 균등 3등분
+  } else if (paneCount === 3) {
+    // 좌/중/우 균등 3등분
+    await invoke('split_pane', { direction: 'vertical' });
+    await refreshLayout();
+    await sleep(300);
     await invoke('focus_direction', { direction: 'right' });
     await sleep(100);
     await invoke('split_pane', { direction: 'vertical' });
-    // 루트 split을 1/3:2/3으로, 우측 split을 1/2:1/2로 → 균등 3등분
     await invoke('set_split_ratio', { path: [], ratio: 0.333 });
     await refreshLayout();
     await sleep(500);
-  }
-
-  if (paneCount >= 4) {
-    // 3. 우측 포커스 → horizontal split → 우상/우하
+  } else if (paneCount === 4) {
+    // 2x2 그리드
+    await invoke('split_pane', { direction: 'vertical' });
+    await refreshLayout();
+    await sleep(300);
+    // 좌측 horizontal split
+    await invoke('focus_direction', { direction: 'left' });
+    await sleep(100);
+    await invoke('split_pane', { direction: 'horizontal' });
+    await refreshLayout();
+    await sleep(300);
+    // 우측 horizontal split
     await invoke('focus_direction', { direction: 'right' });
     await sleep(100);
     await invoke('focus_direction', { direction: 'right' });
@@ -213,34 +221,35 @@ async function changeLayout(newCount) {
 
   const folders = SESSION_FOLDERS.slice(0, newCount);
 
-  // setupSessions와 동일한 분할 로직
-  if (newCount >= 2) {
+  // setupSessions와 동일한 분할 로직 (각 레이아웃은 독립적)
+  if (newCount === 2) {
     await invoke('split_pane', { direction: 'vertical' });
     await refreshLayout();
     await sleep(300);
-  }
-  if (newCount >= 3) {
+  } else if (newCount === 3) {
+    await invoke('split_pane', { direction: 'vertical' });
+    await refreshLayout();
+    await sleep(300);
     await invoke('focus_direction', { direction: 'right' });
     await sleep(100);
     await invoke('split_pane', { direction: 'vertical' });
     await invoke('set_split_ratio', { path: [], ratio: 0.333 });
     await refreshLayout();
     await sleep(300);
-  }
-  if (newCount >= 4) {
-    // 좌측 2개를 horizontal split
-    await invoke('focus_direction', { direction: 'left' });
+  } else if (newCount === 4) {
+    await invoke('split_pane', { direction: 'vertical' });
+    await refreshLayout();
+    await sleep(300);
     await invoke('focus_direction', { direction: 'left' });
     await sleep(100);
     await invoke('split_pane', { direction: 'horizontal' });
     await refreshLayout();
-    await sleep(100);
-    // 우측 2개를 horizontal split
+    await sleep(300);
     await invoke('focus_direction', { direction: 'right' });
+    await sleep(100);
     await invoke('focus_direction', { direction: 'right' });
     await sleep(100);
     await invoke('split_pane', { direction: 'horizontal' });
-    await invoke('set_split_ratio', { path: [], ratio: 0.5 });
     await refreshLayout();
     await sleep(300);
   }
