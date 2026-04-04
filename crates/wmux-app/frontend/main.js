@@ -131,10 +131,12 @@ async function setupSessions() {
   }
 
   if (paneCount >= 3) {
-    // 2. 좌측 포커스 → horizontal split → 좌상/좌하
-    await invoke('focus_direction', { direction: 'left' });
+    // 2. 우측에 vertical split → 좌/중/우 균등 3등분
+    await invoke('focus_direction', { direction: 'right' });
     await sleep(100);
-    await invoke('split_pane', { direction: 'horizontal' });
+    await invoke('split_pane', { direction: 'vertical' });
+    // 루트 split을 1/3:2/3으로, 우측 split을 1/2:1/2로 → 균등 3등분
+    await invoke('set_split_ratio', { path: [], ratio: 0.333 });
     await refreshLayout();
     await sleep(500);
   }

@@ -139,6 +139,19 @@ async fn split_pane(
 }
 
 #[tauri::command]
+async fn set_split_ratio(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+    path: Vec<bool>,
+    ratio: f64,
+) -> Result<(), String> {
+    let mut core = state.core.lock().await;
+    core.set_ratio_at(&path, ratio);
+    let _ = app_handle.emit("layout-changed", ());
+    Ok(())
+}
+
+#[tauri::command]
 async fn close_pane(
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, Arc<AppState>>,
@@ -401,6 +414,7 @@ fn main() {
             send_input,
             resize_terminal,
             split_pane,
+            set_split_ratio,
             close_pane,
             focus_pane,
             focus_direction,
