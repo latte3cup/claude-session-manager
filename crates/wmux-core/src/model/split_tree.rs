@@ -251,22 +251,20 @@ impl SplitNode {
 
     /// Navigate to a split node by path and set its ratio.
     pub fn set_ratio_at(&mut self, path: &[bool], new_ratio: f64) {
-        match self {
-            SplitNode::Split {
-                ratio,
-                first,
-                second,
-                ..
-            } => {
-                if path.is_empty() {
-                    *ratio = new_ratio.clamp(0.1, 0.9);
-                } else if path[0] {
-                    second.set_ratio_at(&path[1..], new_ratio);
-                } else {
-                    first.set_ratio_at(&path[1..], new_ratio);
-                }
+        if let SplitNode::Split {
+            ratio,
+            first,
+            second,
+            ..
+        } = self
+        {
+            if path.is_empty() {
+                *ratio = new_ratio.clamp(0.1, 0.9);
+            } else if path[0] {
+                second.set_ratio_at(&path[1..], new_ratio);
+            } else {
+                first.set_ratio_at(&path[1..], new_ratio);
             }
-            _ => {}
         }
     }
 }

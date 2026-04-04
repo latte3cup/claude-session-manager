@@ -15,6 +15,7 @@ fn make_request(id: &str, method: &str, params: Value) -> Request {
     .unwrap()
 }
 
+#[allow(clippy::type_complexity)]
 fn setup_core_with_workspace() -> (
     WmuxCore,
     mpsc::UnboundedSender<(Uuid, Vec<u8>)>,

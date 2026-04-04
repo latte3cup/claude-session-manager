@@ -19,13 +19,14 @@ pub enum Action {
     None,
 }
 
+#[derive(Default)]
 pub struct InputHandler {
     prefix_mode: bool,
 }
 
 impl InputHandler {
     pub fn new() -> Self {
-        Self { prefix_mode: false }
+        Self::default()
     }
 
     #[allow(dead_code)]

@@ -1,5 +1,5 @@
 use crossterm::event::{
-    KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers, MouseButton, MouseEvent,
+    KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent,
     MouseEventKind,
 };
 use wmux::input::{key_event_to_bytes, mouse_event_to_sgr_bytes, Action, InputHandler};
