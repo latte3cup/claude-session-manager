@@ -260,6 +260,7 @@ async function changeLayout(newCount) {
   // 새 pane들에 세션 설정 (첫 번째는 유지)
   const newLayout = await invoke('get_layout', { width: 200, height: 50 });
   const surfaceIds = newLayout.panes.map(p => p.surface_id);
+  sessionSurfaceMap[0] = surfaceIds[0];
 
   for (let i = 1; i < Math.min(surfaceIds.length, folders.length); i++) {
     const sid = surfaceIds[i];
