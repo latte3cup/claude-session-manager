@@ -47,6 +47,19 @@ export function setupWindowControls() {
   document.getElementById('btn-minimize')?.addEventListener('click', (e) => { e.stopPropagation(); invoke('window_minimize'); });
   document.getElementById('btn-maximize')?.addEventListener('click', (e) => { e.stopPropagation(); invoke('window_maximize'); });
   document.getElementById('btn-close')?.addEventListener('click', (e) => { e.stopPropagation(); invoke('window_close'); });
+
+  // 헤더 드래그로 창 이동
+  const header = document.getElementById('app-header');
+  header?.addEventListener('mousedown', (e) => {
+    if (e.target.tagName === 'BUTTON') return;
+    invoke('window_start_drag');
+  });
+
+  // 헤더 더블클릭으로 최대화 토글
+  header?.addEventListener('dblclick', (e) => {
+    if (e.target.tagName === 'BUTTON') return;
+    invoke('window_maximize');
+  });
 }
 
 export function setupSettings() {

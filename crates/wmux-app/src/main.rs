@@ -262,6 +262,12 @@ async fn get_layout(
 // ── Window Controls ──
 
 #[tauri::command]
+async fn window_start_drag(app_handle: tauri::AppHandle) -> Result<(), String> {
+    let win = app_handle.get_webview_window("main").ok_or("No window")?;
+    win.start_dragging().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn window_minimize(app_handle: tauri::AppHandle) -> Result<(), String> {
     let win = app_handle.get_webview_window("main").ok_or("No window")?;
     win.minimize().map_err(|e| e.to_string())
@@ -404,6 +410,7 @@ fn main() {
             save_config,
             read_file,
             write_file,
+            window_start_drag,
             window_minimize,
             window_maximize,
             window_close,
