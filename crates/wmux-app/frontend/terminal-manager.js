@@ -136,6 +136,10 @@ export function createTerminal(surfaceId) {
       e.preventDefault();
       return false;
     }
+    // Ctrl+Tab은 글로벌 핸들러에서 처리 — xterm에 전달하지 않음
+    if (e.ctrlKey && e.key === 'Tab') {
+      return false;
+    }
     return true;
   });
 
@@ -191,6 +195,7 @@ export function setFocused(surfaceId) {
 }
 
 export function getFocusedId() { return focusedId; }
+export function getSurfaceIds() { return [...terminals.keys()]; }
 export function getTerminal(surfaceId) { return terminals.get(surfaceId); }
 
 export async function applyLayout(panes, totalWidthCells, totalHeightCells, knownSurfaceIds = []) {

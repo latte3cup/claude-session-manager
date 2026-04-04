@@ -10,11 +10,22 @@ async function init() {
   // WebView2 기본 우클릭 메뉴 비활성화
   document.addEventListener('contextmenu', (e) => e.preventDefault());
 
-  // F11 최대화/복원
+  // F11 최대화/복원, Ctrl+Tab 포커스 순환
   document.addEventListener('keydown', (e) => {
     if (e.key === 'F11') {
       e.preventDefault();
       invoke('window_maximize');
+    }
+    if (e.ctrlKey && e.key === 'Tab') {
+      e.preventDefault();
+      const ids = tm.getSurfaceIds();
+      if (ids.length < 2) return;
+      const current = tm.getFocusedId();
+      const idx = ids.indexOf(current);
+      const next = e.shiftKey
+        ? ids[(idx - 1 + ids.length) % ids.length]
+        : ids[(idx + 1) % ids.length];
+      invoke('focus_pane', { surfaceId: next });
     }
   });
   // Forward terminal input to backend
