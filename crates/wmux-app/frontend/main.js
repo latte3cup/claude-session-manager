@@ -1,7 +1,7 @@
 import * as tm from './terminal-manager.js';
 import { refreshLayout, setupResizeHandler } from './layout.js';
 import { showContextMenu } from './context-menu.js';
-import { setupSettings, loadSettings, setupWindowControls } from './settings.js';
+import { setupSettings, loadSettings, getSettings, setOnSettingsChange, setupWindowControls } from './settings.js';
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -77,51 +77,73 @@ async function init() {
   // Initial load
   await refreshLayout();
 
-  // 자동 4분할 + autoCommand
+  // 설정 변경 콜백 등록
+  setOnSettingsChange(async (settings) => {
+    tm.setAllFontFamily(settings.fontFamily);
+    const newCount = Math.min(Math.max(settings.activePanes || 4, 2), 4);
+    if (currentPaneCount && newCount !== currentPaneCount) {
+      await changeLayout(newCount);
+      currentPaneCount = newCount;
+    }
+  });
+
+  // activePanes 설정에 따라 분할 + autoCommand
   await setupSessions();
+  currentPaneCount = Math.min(Math.max(getSettings().activePanes || 4, 2), 4);
 }
 
 // === Session Management ===
 
 const SESSION_FOLDERS = ['session1', 'session2', 'session3', 'session4'];
 let WORKSPACE_ROOT = '';
+let currentPaneCount = 0;
 
 async function setupSessions() {
   // workspace root 가져오기
   WORKSPACE_ROOT = await invoke('get_workspace_root');
 
+  const { activePanes } = getSettings();
+  const paneCount = Math.min(Math.max(activePanes || 4, 2), 4);
+  const folders = SESSION_FOLDERS.slice(0, paneCount);
+
   // 세션 폴더 자동 생성
-  for (const folder of SESSION_FOLDERS) {
+  for (const folder of folders) {
     try { await invoke('write_file', { path: `${WORKSPACE_ROOT}\\${folder}\\.keep`, content: '' }); } catch {}
   }
 
-  // 3번 split해서 4분할
-  // 1. vertical split → 좌/우
-  await invoke('split_pane', { direction: 'vertical' });
-  await refreshLayout();
-  await sleep(500);
+  // activePanes에 따라 분할
+  if (paneCount >= 2) {
+    // 1. vertical split → 좌/우
+    await invoke('split_pane', { direction: 'vertical' });
+    await refreshLayout();
+    await sleep(500);
+  }
 
-  // 2. 좌측 포커스 → horizontal split → 좌상/좌하
-  await invoke('focus_direction', { direction: 'left' });
-  await sleep(100);
-  await invoke('split_pane', { direction: 'horizontal' });
-  await refreshLayout();
-  await sleep(500);
+  if (paneCount >= 3) {
+    // 2. 좌측 포커스 → horizontal split → 좌상/좌하
+    await invoke('focus_direction', { direction: 'left' });
+    await sleep(100);
+    await invoke('split_pane', { direction: 'horizontal' });
+    await refreshLayout();
+    await sleep(500);
+  }
 
-  // 3. 우측 포커스 → horizontal split → 우상/우하
-  await invoke('focus_direction', { direction: 'right' });
-  await sleep(100);
-  await invoke('focus_direction', { direction: 'right' });
-  await sleep(100);
-  await invoke('split_pane', { direction: 'horizontal' });
-  await refreshLayout();
-  await sleep(500);
+  if (paneCount >= 4) {
+    // 3. 우측 포커스 → horizontal split → 우상/우하
+    await invoke('focus_direction', { direction: 'right' });
+    await sleep(100);
+    await invoke('focus_direction', { direction: 'right' });
+    await sleep(100);
+    await invoke('split_pane', { direction: 'horizontal' });
+    await refreshLayout();
+    await sleep(500);
+  }
 
   // 각 패널에 세션 폴더 cd + autoCommand
   const layout = await invoke('get_layout', { width: 200, height: 50 });
   const surfaceIds = layout.panes.map(p => p.surface_id);
 
-  for (let i = 0; i < Math.min(surfaceIds.length, SESSION_FOLDERS.length); i++) {
+  for (let i = 0; i < Math.min(surfaceIds.length, folders.length); i++) {
     const sid = surfaceIds[i];
     const meta = await loadSessionMeta(SESSION_FOLDERS[i]);
     sessionMetas[i] = meta;
@@ -157,6 +179,79 @@ async function setupSessions() {
 
     if (meta.postMacroEnabled && meta.postMacro && meta.postMacro.length > 0) {
       runMacro(sid, meta.postMacro, meta.autoCommand ? 500 : 0);
+    }
+  }
+}
+
+async function changeLayout(newCount) {
+  const oldCount = currentPaneCount;
+
+  if (newCount < oldCount) {
+    // 축소: 뒤에서부터 초과분 닫기
+    const layout = await invoke('get_layout', { width: 200, height: 50 });
+    const currentIds = layout.panes.map(p => p.surface_id);
+    for (let i = currentIds.length - 1; i >= newCount; i--) {
+      await invoke('close_pane', { surfaceId: currentIds[i] });
+      tm.destroyTerminal(currentIds[i]);
+      delete sessionMetas[i];
+      delete sessionSurfaceMap[i];
+    }
+    await refreshLayout();
+  } else {
+    // 확장: 부족한 만큼 split 추가
+    for (let i = oldCount; i < newCount; i++) {
+      // 마지막 pane에 포커스 후 split
+      const layout = await invoke('get_layout', { width: 200, height: 50 });
+      const lastId = layout.panes[layout.panes.length - 1].surface_id;
+      await invoke('focus_pane', { surfaceId: lastId });
+      await sleep(100);
+      // 짝수번째면 horizontal, 홀수면 vertical
+      const dir = (i % 2 === 0) ? 'vertical' : 'horizontal';
+      await invoke('split_pane', { direction: dir });
+      await refreshLayout();
+      await sleep(300);
+    }
+
+    // 새로 생긴 pane들에 세션 설정
+    const layout = await invoke('get_layout', { width: 200, height: 50 });
+    const surfaceIds = layout.panes.map(p => p.surface_id);
+
+    for (let i = oldCount; i < Math.min(surfaceIds.length, newCount); i++) {
+      const sid = surfaceIds[i];
+      const folder = SESSION_FOLDERS[i];
+      try { await invoke('write_file', { path: `${WORKSPACE_ROOT}\\${folder}\\.keep`, content: '' }); } catch {}
+      const meta = await loadSessionMeta(folder);
+      sessionMetas[i] = meta;
+      sessionSurfaceMap[i] = sid;
+
+      tm.setTitle(sid, meta.title || folder);
+      if (meta.fontSize) tm.setFontSize(sid, meta.fontSize);
+
+      const titleBar = tm.getTitleBar(sid);
+      if (titleBar) {
+        const idx = i;
+        titleBar.addEventListener('contextmenu', (e) => {
+          const m = sessionMetas[idx] || {};
+          showContextMenu(e, sid, idx, m, {
+            onStop: () => invoke('send_input', { surfaceId: sid, data: '\x03' }),
+            onStart: () => {},
+            onRestart: () => invoke('send_input', { surfaceId: sid, data: '\x03' }),
+            onMetaSave: saveSessionMeta,
+          });
+        });
+      }
+
+      const cdCmd = `cd /d "${WORKSPACE_ROOT}\\${folder}"\r`;
+      await invoke('send_input', { surfaceId: sid, data: cdCmd });
+
+      if (meta.autoCommand) {
+        await sleep(500);
+        await invoke('send_input', { surfaceId: sid, data: meta.autoCommand + '\r' });
+      }
+
+      if (meta.postMacroEnabled && meta.postMacro && meta.postMacro.length > 0) {
+        runMacro(sid, meta.postMacro, meta.autoCommand ? 500 : 0);
+      }
     }
   }
 }

@@ -45,6 +45,13 @@ export function setFontSize(surfaceId, size) {
   }
 }
 
+export function setAllFontFamily(fontFamily) {
+  for (const entry of terminals.values()) {
+    entry.term.options.fontFamily = fontFamily;
+    entry.fitAddon.fit();
+  }
+}
+
 
 export function createTerminal(surfaceId) {
   if (terminals.has(surfaceId)) return terminals.get(surfaceId);

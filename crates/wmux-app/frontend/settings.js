@@ -92,6 +92,7 @@ function renderOptions() {
     btn.className = 'opt-btn' + (appSettings.activePanes === opt.value ? ' active' : '');
     btn.textContent = opt.label;
     btn.onclick = () => {
+      const prev = appSettings.activePanes;
       appSettings.activePanes = opt.value;
       saveSettings();
       renderOptions();
