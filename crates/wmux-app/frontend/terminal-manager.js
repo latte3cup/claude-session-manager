@@ -139,10 +139,11 @@ export function createTerminal(surfaceId) {
     return true;
   });
 
-  // Ctrl+Scroll 폰트 크기 조절
+  // Ctrl+Scroll 폰트 크기 조절 (capture phase로 xterm보다 먼저 처리)
   container.addEventListener('wheel', (e) => {
     if (!e.ctrlKey) return;
     e.preventDefault();
+    e.stopPropagation();
     const current = term.options.fontSize || 12;
     const next = Math.max(8, Math.min(24, current + (e.deltaY < 0 ? 1 : -1)));
     term.options.fontSize = next;
@@ -153,7 +154,7 @@ export function createTerminal(surfaceId) {
     });
     // 콜백으로 저장 알림
     if (onFontSizeChangeCallback) onFontSizeChangeCallback(surfaceId, next);
-  }, { passive: false });
+  }, { passive: false, capture: true });
 
   term.onData((data) => {
     if (surfaceId === focusedId && onInputCallback) onInputCallback(surfaceId, data);
