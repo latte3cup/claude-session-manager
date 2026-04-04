@@ -191,6 +191,7 @@ export function setFocused(surfaceId) {
   for (const [id, entry] of terminals) {
     entry.container.classList.toggle('focused', id === surfaceId);
     if (id === surfaceId) entry.term.focus();
+    entry.term.refresh(0, entry.term.rows - 1);
   }
 }
 
@@ -225,7 +226,8 @@ export async function applyLayout(panes, totalWidthCells, totalHeightCells, know
     if (pane.is_focused) setFocused(pane.surface_id);
   }
 
-  await new Promise(r => requestAnimationFrame(r));
+  // 2-3프레임 대기 후 fit — CSS 레이아웃 안정화
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r))));
   for (const pane of panes) {
     const entry = terminals.get(pane.surface_id);
     if (entry) entry.fitAddon.fit();
