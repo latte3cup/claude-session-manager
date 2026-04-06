@@ -32,11 +32,13 @@ let onInputCallback = null;
 let onNewTerminalCallback = null;
 let onFontSizeChangeCallback = null;
 let onTitleChangeCallback = null;
+let onRefreshLayoutCallback = null;
 
 export function setOnInput(callback) { onInputCallback = callback; }
 export function setOnNewTerminal(callback) { onNewTerminalCallback = callback; }
 export function setOnFontSizeChange(callback) { onFontSizeChangeCallback = callback; }
 export function setOnTitleChange(callback) { onTitleChangeCallback = callback; }
+export function setOnRefreshLayout(callback) { onRefreshLayoutCallback = callback; }
 
 export function setFontSize(surfaceId, size) {
   const entry = terminals.get(surfaceId);
@@ -142,6 +144,16 @@ export function createTerminal(surfaceId) {
     if (e.ctrlKey && e.key === 'Tab') {
       return false;
     }
+    // F11 풀스크린 — xterm이 처리하지 않고 document keydown으로 전달
+    if (e.key === 'F11') {
+      return false;
+    }
+    // F5 레이아웃 리프레시
+    if (e.key === 'F5') {
+      e.preventDefault();
+      if (onRefreshLayoutCallback) onRefreshLayoutCallback();
+      return false;
+    }
     return true;
   });
 
@@ -244,6 +256,11 @@ export async function applyLayout(panes, totalWidthCells, totalHeightCells, know
     const entry = terminals.get(pane.surface_id);
     if (entry) entry.fitAddon.fit();
   }
+}
+
+export function isOff(surfaceId) {
+  const entry = terminals.get(surfaceId);
+  return entry ? !!entry.container.querySelector('.off-overlay') : false;
 }
 
 export function setOff(surfaceId, isOff) {

@@ -10,11 +10,20 @@ async function init() {
   // WebView2 기본 우클릭 메뉴 비활성화
   document.addEventListener('contextmenu', (e) => e.preventDefault());
 
-  // F11 최대화/복원, Ctrl+Tab 포커스 순환
+  // F11 풀스크린, F5 리프레시, Ctrl+Tab 포커스 순환
+  let f11Pending = false;
   document.addEventListener('keydown', (e) => {
     if (e.key === 'F11') {
       e.preventDefault();
-      invoke('window_maximize');
+      if (f11Pending) return;
+      f11Pending = true;
+      invoke('window_fullscreen').finally(() => {
+        setTimeout(() => { f11Pending = false; }, 500);
+      });
+    }
+    if (e.key === 'F5') {
+      e.preventDefault();
+      refreshLayout();
     }
     if (e.ctrlKey && e.key === 'Tab') {
       e.preventDefault();
@@ -28,6 +37,9 @@ async function init() {
       invoke('focus_pane', { surfaceId: next });
     }
   });
+  // F5 레이아웃 리프레시 콜백
+  tm.setOnRefreshLayout(() => refreshLayout());
+
   // Forward terminal input to backend
   tm.setOnInput((surfaceId, data) => {
     invoke('send_input', { surfaceId, data });
@@ -184,11 +196,38 @@ async function setupSessions() {
       titleBar.addEventListener('contextmenu', (e) => {
         const m = sessionMetas[idx] || {};
         showContextMenu(e, sid, idx, m, {
-          onStop: () => invoke('send_input', { surfaceId: sid, data: '\x03' }),
-          onStart: () => {},
-          onRestart: () => invoke('send_input', { surfaceId: sid, data: '\x03' }),
+          onStop: () => {
+            invoke('send_input', { surfaceId: sid, data: '\x03' });
+            setTimeout(() => invoke('send_input', { surfaceId: sid, data: '\x03' }), 200);
+          },
+          onStart: async () => {
+            await invoke('restart_pty', { surfaceId: sid });
+            tm.setOff(sid, false);
+            const folder = SESSION_FOLDERS[idx];
+            const cdCmd = `cd /d "${WORKSPACE_ROOT}\\${folder}"\r`;
+            await invoke('send_input', { surfaceId: sid, data: cdCmd });
+            const meta = sessionMetas[idx] || {};
+            if (meta.autoCommand) {
+              await sleep(500);
+              await invoke('send_input', { surfaceId: sid, data: meta.autoCommand + '\r' });
+            }
+          },
+          onRestart: async () => {
+            await invoke('kill_pty', { surfaceId: sid });
+            await sleep(500);
+            await invoke('restart_pty', { surfaceId: sid });
+            tm.setOff(sid, false);
+            const folder = SESSION_FOLDERS[idx];
+            const cdCmd = `cd /d "${WORKSPACE_ROOT}\\${folder}"\r`;
+            await invoke('send_input', { surfaceId: sid, data: cdCmd });
+            const meta = sessionMetas[idx] || {};
+            if (meta.autoCommand) {
+              await sleep(500);
+              await invoke('send_input', { surfaceId: sid, data: meta.autoCommand + '\r' });
+            }
+          },
           onMetaSave: saveSessionMeta,
-        });
+        }, tm.isOff(sid));
       });
     }
 
@@ -279,11 +318,38 @@ async function changeLayout(newCount) {
       titleBar.addEventListener('contextmenu', (e) => {
         const m = sessionMetas[idx] || {};
         showContextMenu(e, sid, idx, m, {
-          onStop: () => invoke('send_input', { surfaceId: sid, data: '\x03' }),
-          onStart: () => {},
-          onRestart: () => invoke('send_input', { surfaceId: sid, data: '\x03' }),
+          onStop: () => {
+            invoke('send_input', { surfaceId: sid, data: '\x03' });
+            setTimeout(() => invoke('send_input', { surfaceId: sid, data: '\x03' }), 200);
+          },
+          onStart: async () => {
+            await invoke('restart_pty', { surfaceId: sid });
+            tm.setOff(sid, false);
+            const folder = SESSION_FOLDERS[idx];
+            const cdCmd = `cd /d "${WORKSPACE_ROOT}\\${folder}"\r`;
+            await invoke('send_input', { surfaceId: sid, data: cdCmd });
+            const meta = sessionMetas[idx] || {};
+            if (meta.autoCommand) {
+              await sleep(500);
+              await invoke('send_input', { surfaceId: sid, data: meta.autoCommand + '\r' });
+            }
+          },
+          onRestart: async () => {
+            await invoke('kill_pty', { surfaceId: sid });
+            await sleep(500);
+            await invoke('restart_pty', { surfaceId: sid });
+            tm.setOff(sid, false);
+            const folder = SESSION_FOLDERS[idx];
+            const cdCmd = `cd /d "${WORKSPACE_ROOT}\\${folder}"\r`;
+            await invoke('send_input', { surfaceId: sid, data: cdCmd });
+            const meta = sessionMetas[idx] || {};
+            if (meta.autoCommand) {
+              await sleep(500);
+              await invoke('send_input', { surfaceId: sid, data: meta.autoCommand + '\r' });
+            }
+          },
           onMetaSave: saveSessionMeta,
-        });
+        }, tm.isOff(sid));
       });
     }
 

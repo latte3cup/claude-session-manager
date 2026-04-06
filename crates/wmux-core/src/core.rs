@@ -281,6 +281,46 @@ impl WmuxCore {
         }
     }
 
+    pub fn kill_pty(&mut self, surface_id: Uuid) {
+        if let Some(surface) = self.surfaces.get_mut(&surface_id) {
+            let pid = surface.pid;
+            // 1. portable_pty kill 시도
+            if let Some(ref mut pty) = surface.pty {
+                let _ = pty.child.kill();
+            }
+            // 2. PTY 핸들 드롭 (master/writer 닫힘 → reader 스레드 종료)
+            surface.pty = None;
+            // 3. Windows: taskkill로 프로세스 트리 강제 종료
+            #[cfg(target_os = "windows")]
+            if pid > 0 {
+                let _ = std::process::Command::new("taskkill")
+                    .args(["/F", "/T", "/PID", &pid.to_string()])
+                    .output();
+            }
+            surface.mark_exited(-1);
+        }
+    }
+
+    pub fn restart_pty(
+        &mut self,
+        surface_id: Uuid,
+        pty_tx: &mpsc::UnboundedSender<(Uuid, Vec<u8>)>,
+        exit_tx: &mpsc::UnboundedSender<Uuid>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let surface = self.surfaces.get_mut(&surface_id)
+            .ok_or("Surface not found")?;
+        let (cols, rows) = surface.size;
+        let shell = surface.shell.clone();
+        let pty = spawn_pty(&shell, cols, rows, None)?;
+        start_pty_reader(surface_id, pty.master.as_ref(), pty_tx.clone(), exit_tx.clone())?;
+        surface.pid = pty.pid;
+        surface.pty = Some(pty);
+        surface.exited = None;
+        surface.parser = vt100::Parser::new(rows, cols, 1000);
+        surface.dirty = true;
+        Ok(())
+    }
+
     pub fn handle_pty_exit(&mut self, surface_id: Uuid) {
         if let Some(surface) = self.surfaces.get_mut(&surface_id) {
             let code = surface

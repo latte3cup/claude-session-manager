@@ -110,8 +110,16 @@ function renderOptions() {
     fontContainer.appendChild(btn);
   });
 
-  // 저장 버튼 (변경 사항 있을 때만 활성화)
+  // DevTools 버튼
   saveContainer.innerHTML = '';
+  const devBtn = document.createElement('button');
+  devBtn.className = 'opt-btn';
+  devBtn.textContent = 'DevTools';
+  devBtn.style.fontSize = '11px';
+  devBtn.onclick = () => invoke('window_devtools');
+  saveContainer.appendChild(devBtn);
+
+  // 저장 버튼 (변경 사항 있을 때만 활성화)
   const hasChanges = pendingSettings.activePanes !== appSettings.activePanes
     || pendingSettings.fontFamily !== appSettings.fontFamily;
   const saveBtn = document.createElement('button');

@@ -5,7 +5,7 @@ let currentEditPanel = null;
 
 const KEY_OPTIONS = ['enter', 'tab', 'up', 'down', 'left', 'right', 'escape', 'backspace', 'space'];
 
-export function showContextMenu(e, surfaceId, sessionIndex, meta, callbacks) {
+export function showContextMenu(e, surfaceId, sessionIndex, meta, callbacks, isProcessOff) {
   e.preventDefault();
   closeMenu();
 
@@ -15,7 +15,7 @@ export function showContextMenu(e, surfaceId, sessionIndex, meta, callbacks) {
   menu.style.top = e.clientY + 'px';
 
   // Stop / Start
-  if (meta._isRunning !== false) {
+  if (!isProcessOff) {
     menu.appendChild(makeItem('Stop', 'stop', () => { callbacks.onStop(); closeMenu(); }));
   } else {
     menu.appendChild(makeItem('Start', 'start', () => { callbacks.onStart(); closeMenu(); }));

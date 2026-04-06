@@ -101,7 +101,9 @@ async fn resize_terminal(
     let mut core = state.core.lock().await;
     let id = Uuid::parse_str(&surface_id).map_err(|e| e.to_string())?;
     if let Some(surface) = core.surfaces.get_mut(&id) {
-        surface.resize(cols, rows);
+        if cols >= 2 && rows >= 2 {
+            surface.resize(cols, rows);
+        }
     }
     Ok(())
 }
@@ -272,6 +274,30 @@ async fn get_layout(
     })
 }
 
+// ── PTY Controls ──
+
+#[tauri::command]
+async fn kill_pty(
+    state: tauri::State<'_, Arc<AppState>>,
+    surface_id: String,
+) -> Result<(), String> {
+    let mut core = state.core.lock().await;
+    let id = Uuid::parse_str(&surface_id).map_err(|e| e.to_string())?;
+    core.kill_pty(id);
+    Ok(())
+}
+
+#[tauri::command]
+async fn restart_pty(
+    state: tauri::State<'_, Arc<AppState>>,
+    surface_id: String,
+) -> Result<(), String> {
+    let mut core = state.core.lock().await;
+    let id = Uuid::parse_str(&surface_id).map_err(|e| e.to_string())?;
+    core.restart_pty(id, &state.pty_tx, &state.exit_tx)
+        .map_err(|e| e.to_string())
+}
+
 // ── Window Controls ──
 
 #[tauri::command]
@@ -294,6 +320,30 @@ async fn window_maximize(app_handle: tauri::AppHandle) -> Result<(), String> {
     } else {
         win.maximize().map_err(|e| e.to_string())
     }
+}
+
+#[tauri::command]
+async fn window_fullscreen(app_handle: tauri::AppHandle) -> Result<(), String> {
+    let win = app_handle.get_webview_window("main").ok_or("No window")?;
+    let is_full = win.is_fullscreen().unwrap_or(false);
+    if !is_full {
+        // maximize 상태면 먼저 해제해야 fullscreen 크기가 올바르게 적용됨
+        if win.is_maximized().unwrap_or(false) {
+            win.unmaximize().map_err(|e| e.to_string())?;
+        }
+    }
+    win.set_fullscreen(!is_full).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn window_devtools(app_handle: tauri::AppHandle) -> Result<(), String> {
+    let win = app_handle.get_webview_window("main").ok_or("No window")?;
+    if win.is_devtools_open() {
+        win.close_devtools();
+    } else {
+        win.open_devtools();
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -413,6 +463,8 @@ fn main() {
             get_surface_id,
             send_input,
             resize_terminal,
+            kill_pty,
+            restart_pty,
             split_pane,
             set_split_ratio,
             close_pane,
@@ -427,6 +479,8 @@ fn main() {
             window_start_drag,
             window_minimize,
             window_maximize,
+            window_fullscreen,
+            window_devtools,
             window_close,
         ])
         .run(tauri::generate_context!())
