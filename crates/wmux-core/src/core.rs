@@ -307,12 +307,19 @@ impl WmuxCore {
         pty_tx: &mpsc::UnboundedSender<(Uuid, Vec<u8>)>,
         exit_tx: &mpsc::UnboundedSender<Uuid>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let surface = self.surfaces.get_mut(&surface_id)
+        let surface = self
+            .surfaces
+            .get_mut(&surface_id)
             .ok_or("Surface not found")?;
         let (cols, rows) = surface.size;
         let shell = surface.shell.clone();
         let pty = spawn_pty(&shell, cols, rows, None)?;
-        start_pty_reader(surface_id, pty.master.as_ref(), pty_tx.clone(), exit_tx.clone())?;
+        start_pty_reader(
+            surface_id,
+            pty.master.as_ref(),
+            pty_tx.clone(),
+            exit_tx.clone(),
+        )?;
         surface.pid = pty.pid;
         surface.pty = Some(pty);
         surface.exited = None;
