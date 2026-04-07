@@ -290,11 +290,11 @@ impl WmuxCore {
             }
             // 2. PTY 핸들 드롭 (master/writer 닫힘 → reader 스레드 종료)
             surface.pty = None;
-            // 3. Windows: taskkill로 프로세스 트리 강제 종료
+            // 3. Windows: taskkill로 해당 프로세스만 강제 종료 (/T 제거 — 다른 세션 영향 방지)
             #[cfg(target_os = "windows")]
             if pid > 0 {
                 let _ = std::process::Command::new("taskkill")
-                    .args(["/F", "/T", "/PID", &pid.to_string()])
+                    .args(["/F", "/PID", &pid.to_string()])
                     .output();
             }
             surface.mark_exited(-1);

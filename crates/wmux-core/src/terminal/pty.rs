@@ -53,15 +53,27 @@ pub fn start_pty_reader(
     let mut reader = master.try_clone_reader()?;
     let handle = std::thread::spawn(move || {
         let mut buf = [0u8; 4096];
+        let mut consecutive_errors = 0u32;
         loop {
             match reader.read(&mut buf) {
                 Ok(0) => break,
                 Ok(n) => {
+                    consecutive_errors = 0;
                     if tx.send((surface_id, buf[..n].to_vec())).is_err() {
                         break;
                     }
                 }
-                Err(_) => break,
+                Err(e) => {
+                    // 일시적 에러는 재시도 (리사이즈 중 타이밍 이슈 등)
+                    if e.kind() == std::io::ErrorKind::Interrupted {
+                        continue;
+                    }
+                    consecutive_errors += 1;
+                    if consecutive_errors >= 3 {
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
             }
         }
         // Notify that this surface's PTY has exited
