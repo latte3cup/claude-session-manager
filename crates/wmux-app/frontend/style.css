@@ -35,6 +35,7 @@ body { display: flex; flex-direction: column; }
   display: flex;
   flex-direction: column;
   transition: border-color 200ms ease;
+  min-height: 48px;
 }
 .pane.focused {
   border-color: var(--accent);
