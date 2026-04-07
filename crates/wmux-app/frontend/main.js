@@ -7,8 +7,10 @@ const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
 async function init() {
-  // WebView2 기본 우클릭 메뉴 비활성화
+  // WebView2 기본 우클릭 메뉴 + 드래그앤드롭 비활성화
   document.addEventListener('contextmenu', (e) => e.preventDefault());
+  document.addEventListener('dragover', (e) => e.preventDefault());
+  document.addEventListener('drop', (e) => e.preventDefault());
 
   // F11 풀스크린, F5 리프레시, Ctrl+Tab 포커스 순환
   let f11Pending = false;
@@ -69,6 +71,16 @@ async function init() {
         saveSessionMeta(parseInt(idx), sessionMetas[idx]);
       }
     }
+  });
+
+  // 드래그앤드롭 → 파일 경로 붙여넣기
+  listen('tauri://drag-drop', (event) => {
+    const paths = event.payload?.paths;
+    if (!paths || paths.length === 0) return;
+    const focusedId = tm.getFocusedId();
+    if (!focusedId) return;
+    const text = paths.map(p => p.includes(' ') ? `"${p}"` : p).join(' ');
+    invoke('send_input', { surfaceId: focusedId, data: text });
   });
 
   // PTY output → route to correct terminal
