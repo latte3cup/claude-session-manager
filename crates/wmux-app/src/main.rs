@@ -298,6 +298,17 @@ async fn restart_pty(
         .map_err(|e| e.to_string())
 }
 
+// ── Explorer ──
+
+#[tauri::command]
+async fn open_folder(path: String) -> Result<(), String> {
+    std::process::Command::new("explorer")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 // ── Clipboard ──
 
 #[tauri::command]
@@ -481,6 +492,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_surface_id,
             get_clipboard_files,
+            open_folder,
             send_input,
             resize_terminal,
             kill_pty,

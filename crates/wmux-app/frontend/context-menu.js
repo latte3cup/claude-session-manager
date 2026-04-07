@@ -23,6 +23,12 @@ export function showContextMenu(e, surfaceId, sessionIndex, meta, callbacks, isP
   menu.appendChild(makeItem('Restart', '', () => { callbacks.onRestart(); closeMenu(); }));
   menu.appendChild(makeSep());
 
+  // 폴더 열기
+  if (callbacks.onOpenFolder) {
+    menu.appendChild(makeItem('폴더 열기', '', () => { callbacks.onOpenFolder(); closeMenu(); }));
+    menu.appendChild(makeSep());
+  }
+
   // 실행 커맨드
   const cmdLabel = meta.autoCommand || '(없음)';
   menu.appendChild(makeItem('실행 커맨드', cmdLabel, () => {

@@ -238,6 +238,7 @@ async function setupSessions() {
               await invoke('send_input', { surfaceId: sid, data: meta.autoCommand + '\r' });
             }
           },
+          onOpenFolder: () => invoke('open_folder', { path: `${WORKSPACE_ROOT}\\${SESSION_FOLDERS[idx]}` }),
           onMetaSave: saveSessionMeta,
         }, tm.isOff(sid));
       });
@@ -360,6 +361,7 @@ async function changeLayout(newCount) {
               await invoke('send_input', { surfaceId: sid, data: meta.autoCommand + '\r' });
             }
           },
+          onOpenFolder: () => invoke('open_folder', { path: `${WORKSPACE_ROOT}\\${SESSION_FOLDERS[idx]}` }),
           onMetaSave: saveSessionMeta,
         }, tm.isOff(sid));
       });
