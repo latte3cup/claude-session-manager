@@ -21,6 +21,7 @@ async function pasteToTerminal(surfaceId) {
   } catch {}
 }
 
+
 const THEME = {
   background: '#002b36',
   foreground: '#b0bec5',
@@ -197,6 +198,14 @@ export function createTerminal(surfaceId) {
 
   container.addEventListener('mousedown', () => {
     window.__TAURI__.core.invoke('focus_pane', { surfaceId });
+  });
+
+  // 휠 클릭(중간 버튼) → 맨 아래로 즉시 이동
+  container.addEventListener('mousedown', (e) => {
+    if (e.button === 1) {
+      e.preventDefault();
+      term.scrollToBottom();
+    }
   });
 
   // 터미널 영역 우클릭 → 붙여넣기
