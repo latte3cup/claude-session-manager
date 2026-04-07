@@ -298,6 +298,25 @@ async fn restart_pty(
         .map_err(|e| e.to_string())
 }
 
+// ── Clipboard ──
+
+#[tauri::command]
+async fn get_clipboard_files() -> Result<Vec<String>, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use clipboard_win::{formats, get_clipboard};
+        let result: Result<Vec<String>, _> = get_clipboard(formats::FileList);
+        match result {
+            Ok(files) if !files.is_empty() => Ok(files),
+            _ => Ok(vec![]),
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(vec![])
+    }
+}
+
 // ── Window Controls ──
 
 #[tauri::command]
@@ -461,6 +480,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_surface_id,
+            get_clipboard_files,
             send_input,
             resize_terminal,
             kill_pty,

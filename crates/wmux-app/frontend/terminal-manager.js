@@ -2,6 +2,25 @@ import { Terminal } from './vendor/xterm.mjs';
 import { FitAddon } from './vendor/addon-fit.mjs';
 import { WebglAddon } from './vendor/addon-webgl.mjs';
 
+const { invoke } = window.__TAURI__.core;
+
+async function pasteToTerminal(surfaceId) {
+  // 1. 클립보드에 파일이 있으면 경로를 텍스트로 붙여넣기
+  try {
+    const files = await invoke('get_clipboard_files');
+    if (files && files.length > 0) {
+      const paths = files.map(f => f.includes(' ') ? `"${f}"` : f).join(' ');
+      if (onInputCallback) onInputCallback(surfaceId, paths);
+      return;
+    }
+  } catch {}
+  // 2. 일반 텍스트 폴백
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text && onInputCallback) onInputCallback(surfaceId, text);
+  } catch {}
+}
+
 const THEME = {
   background: '#002b36',
   foreground: '#b0bec5',
@@ -134,10 +153,8 @@ export function createTerminal(surfaceId) {
       return false;
     }
     if (e.ctrlKey && e.key === 'v') {
-      navigator.clipboard.readText().then((text) => {
-        if (onInputCallback) onInputCallback(surfaceId, text);
-      });
       e.preventDefault();
+      pasteToTerminal(surfaceId);
       return false;
     }
     // Ctrl+Tab은 글로벌 핸들러에서 처리 — xterm에 전달하지 않음
@@ -187,9 +204,7 @@ export function createTerminal(surfaceId) {
     if (e.target.closest('.pane-title')) return; // 타이틀바는 컨텍스트 메뉴 유지
     e.preventDefault();
     e.stopPropagation();
-    navigator.clipboard.readText().then((text) => {
-      if (text && onInputCallback) onInputCallback(surfaceId, text);
-    });
+    pasteToTerminal(surfaceId);
   });
 
   const entry = { term, fitAddon, container };
