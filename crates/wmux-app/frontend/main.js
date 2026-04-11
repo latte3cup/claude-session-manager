@@ -196,9 +196,11 @@ async function setupSessions() {
     const meta = await loadSessionMeta(SESSION_FOLDERS[i]);
     sessionMetas[i] = meta;
     sessionSurfaceMap[i] = sid;
+    const sessionPath = meta.folderPath || `${WORKSPACE_ROOT}\\${SESSION_FOLDERS[i]}`;
+    sessionPaths[i] = sessionPath;
 
     // 타이틀 + 폰트 크기 설정
-    tm.setTitle(sid, meta.title || SESSION_FOLDERS[i]);
+    tm.setTitle(sid, sessionPath);
     if (meta.fontSize) tm.setFontSize(sid, meta.fontSize);
 
     // 컨텍스트 메뉴 연결
@@ -215,8 +217,7 @@ async function setupSessions() {
           onStart: async () => {
             await invoke('restart_pty', { surfaceId: sid });
             tm.setOff(sid, false);
-            const folder = SESSION_FOLDERS[idx];
-            const cdCmd = `cd /d "${WORKSPACE_ROOT}\\${folder}"\r`;
+            const cdCmd = `cd /d "${sessionPaths[idx]}"\r`;
             await invoke('send_input', { surfaceId: sid, data: cdCmd });
             const meta = sessionMetas[idx] || {};
             if (meta.autoCommand) {
@@ -229,8 +230,22 @@ async function setupSessions() {
             await sleep(500);
             await invoke('restart_pty', { surfaceId: sid });
             tm.setOff(sid, false);
-            const folder = SESSION_FOLDERS[idx];
-            const cdCmd = `cd /d "${WORKSPACE_ROOT}\\${folder}"\r`;
+            const cdCmd = `cd /d "${sessionPaths[idx]}"\r`;
+            await invoke('send_input', { surfaceId: sid, data: cdCmd });
+            const meta = sessionMetas[idx] || {};
+            if (meta.autoCommand) {
+              await sleep(500);
+              await invoke('send_input', { surfaceId: sid, data: meta.autoCommand + '\r' });
+            }
+          },
+          onFolderChange: async (newPath) => {
+            sessionPaths[idx] = newPath;
+            tm.setTitle(sid, newPath);
+            await invoke('kill_pty', { surfaceId: sid });
+            await sleep(500);
+            await invoke('restart_pty', { surfaceId: sid });
+            tm.setOff(sid, false);
+            const cdCmd = `cd /d "${newPath}"\r`;
             await invoke('send_input', { surfaceId: sid, data: cdCmd });
             const meta = sessionMetas[idx] || {};
             if (meta.autoCommand) {
@@ -244,7 +259,7 @@ async function setupSessions() {
     }
 
     // cd + autoCommand
-    const cdCmd = `cd /d "${WORKSPACE_ROOT}\\${SESSION_FOLDERS[i]}"\r`;
+    const cdCmd = `cd /d "${sessionPath}"\r`;
     await invoke('send_input', { surfaceId: sid, data: cdCmd });
 
     if (meta.autoCommand) {
@@ -320,8 +335,10 @@ async function changeLayout(newCount) {
     const meta = await loadSessionMeta(folder);
     sessionMetas[i] = meta;
     sessionSurfaceMap[i] = sid;
+    const sessionPath = meta.folderPath || `${WORKSPACE_ROOT}\\${folder}`;
+    sessionPaths[i] = sessionPath;
 
-    tm.setTitle(sid, meta.title || folder);
+    tm.setTitle(sid, sessionPath);
     if (meta.fontSize) tm.setFontSize(sid, meta.fontSize);
 
     const titleBar = tm.getTitleBar(sid);
@@ -337,8 +354,7 @@ async function changeLayout(newCount) {
           onStart: async () => {
             await invoke('restart_pty', { surfaceId: sid });
             tm.setOff(sid, false);
-            const folder = SESSION_FOLDERS[idx];
-            const cdCmd = `cd /d "${WORKSPACE_ROOT}\\${folder}"\r`;
+            const cdCmd = `cd /d "${sessionPaths[idx]}"\r`;
             await invoke('send_input', { surfaceId: sid, data: cdCmd });
             const meta = sessionMetas[idx] || {};
             if (meta.autoCommand) {
@@ -351,8 +367,22 @@ async function changeLayout(newCount) {
             await sleep(500);
             await invoke('restart_pty', { surfaceId: sid });
             tm.setOff(sid, false);
-            const folder = SESSION_FOLDERS[idx];
-            const cdCmd = `cd /d "${WORKSPACE_ROOT}\\${folder}"\r`;
+            const cdCmd = `cd /d "${sessionPaths[idx]}"\r`;
+            await invoke('send_input', { surfaceId: sid, data: cdCmd });
+            const meta = sessionMetas[idx] || {};
+            if (meta.autoCommand) {
+              await sleep(500);
+              await invoke('send_input', { surfaceId: sid, data: meta.autoCommand + '\r' });
+            }
+          },
+          onFolderChange: async (newPath) => {
+            sessionPaths[idx] = newPath;
+            tm.setTitle(sid, newPath);
+            await invoke('kill_pty', { surfaceId: sid });
+            await sleep(500);
+            await invoke('restart_pty', { surfaceId: sid });
+            tm.setOff(sid, false);
+            const cdCmd = `cd /d "${newPath}"\r`;
             await invoke('send_input', { surfaceId: sid, data: cdCmd });
             const meta = sessionMetas[idx] || {};
             if (meta.autoCommand) {
@@ -365,7 +395,7 @@ async function changeLayout(newCount) {
       });
     }
 
-    const cdCmd = `cd /d "${WORKSPACE_ROOT}\\${folder}"\r`;
+    const cdCmd = `cd /d "${sessionPath}"\r`;
     await invoke('send_input', { surfaceId: sid, data: cdCmd });
 
     if (meta.autoCommand) {
@@ -381,6 +411,7 @@ async function changeLayout(newCount) {
 
 const sessionMetas = {};
 const sessionSurfaceMap = {};
+const sessionPaths = {};
 
 async function saveSessionMeta(sessionIndex, meta) {
   const folder = SESSION_FOLDERS[sessionIndex];
@@ -388,7 +419,7 @@ async function saveSessionMeta(sessionIndex, meta) {
   sessionMetas[sessionIndex] = meta;
   // 타이틀 업데이트
   const sid = sessionSurfaceMap[sessionIndex];
-  if (sid) tm.setTitle(sid, meta.title || folder);
+  if (sid) tm.setTitle(sid, sessionPaths[sessionIndex] || `${WORKSPACE_ROOT}\\${folder}`);
   try {
     await invoke('write_file', { path, content: JSON.stringify(meta, null, 2) });
   } catch (e) {

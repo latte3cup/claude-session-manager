@@ -30,6 +30,16 @@ export function showContextMenu(e, surfaceId, sessionIndex, meta, callbacks, isP
     showAutoCommandEditor(e, sessionIndex, meta, callbacks.onMetaSave);
   }));
 
+  // 폴더 변경
+  if (callbacks.onFolderChange) {
+    const folderHint = meta.folderPath || '';
+    menu.appendChild(makeItem('폴더 변경', folderHint, () => {
+      closeMenu();
+      showFolderEditor(e, sessionIndex, meta, callbacks.onMetaSave, callbacks.onFolderChange);
+    }));
+  }
+  menu.appendChild(makeSep());
+
   // 매크로 설정
   const macroLabel = meta.postMacro?.length > 0
     ? `${meta.postMacro.length} steps ${meta.postMacroEnabled !== false ? 'ON' : 'OFF'}`
@@ -189,6 +199,60 @@ function showMacroEditor(e, sessionIndex, meta, onSave) {
   render();
   document.body.appendChild(panel);
   currentEditPanel = panel;
+
+  setTimeout(() => document.addEventListener('mousedown', onOutsideEditClick), 10);
+}
+
+function showFolderEditor(e, sessionIndex, meta, onSave, onFolderChange) {
+  const panel = document.createElement('div');
+  panel.className = 'ctx-menu ctx-edit';
+  panel.style.left = e.clientX + 'px';
+  panel.style.top = e.clientY + 'px';
+  panel.onmousedown = ev => ev.stopPropagation();
+
+  panel.innerHTML = `
+    <div class="ctx-edit-header">폴더 변경</div>
+    <div class="ctx-edit-body">
+      <div style="display:flex;gap:4px;">
+        <input type="text" class="ctx-input" style="flex:1" value="${escHtml(meta.folderPath || '')}" placeholder="예: C:\\Projects\\MyApp">
+        <button class="ctx-btn browse" title="폴더 선택">📂</button>
+      </div>
+      <div class="ctx-edit-buttons">
+        <button class="ctx-btn cancel">취소</button>
+        <button class="ctx-btn save">적용</button>
+      </div>
+    </div>
+  `;
+
+  const input = panel.querySelector('input');
+  panel.querySelector('.browse').onclick = async () => {
+    try {
+      const selected = await window.__TAURI__.dialog.open({
+        directory: true,
+        multiple: false,
+        defaultPath: input.value || undefined,
+      });
+      if (selected) input.value = selected;
+    } catch {}
+  };
+  panel.querySelector('.cancel').onclick = () => closeEditPanel();
+  panel.querySelector('.save').onclick = () => {
+    const newPath = input.value.trim();
+    if (newPath) {
+      meta.folderPath = newPath;
+      onSave(sessionIndex, meta);
+      onFolderChange(newPath);
+    }
+    closeEditPanel();
+  };
+  input.onkeydown = (ev) => {
+    if (ev.key === 'Enter') panel.querySelector('.save').click();
+    if (ev.key === 'Escape') closeEditPanel();
+  };
+
+  document.body.appendChild(panel);
+  currentEditPanel = panel;
+  requestAnimationFrame(() => { clampToViewport(panel); input.focus(); });
 
   setTimeout(() => document.addEventListener('mousedown', onOutsideEditClick), 10);
 }
