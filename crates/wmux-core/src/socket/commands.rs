@@ -261,6 +261,30 @@ pub fn dispatch(
             }
         }
 
+        "surface.screen_state" => {
+            let params = req.params.as_ref().unwrap_or(&Value::Null);
+            let id_str = params.get("id").and_then(|v| v.as_str()).unwrap_or("");
+            let cols = params.get("cols").and_then(|v| v.as_u64()).unwrap_or(80) as u16;
+            let rows = params.get("rows").and_then(|v| v.as_u64()).unwrap_or(24) as u16;
+            match Uuid::parse_str(id_str) {
+                Ok(id) => {
+                    if let Some(surface) = core.surfaces.get(&id) {
+                        use base64::engine::general_purpose::STANDARD as BASE64;
+                        use base64::Engine;
+                        // Re-render output_history through a parser sized for the client
+                        let mut parser = vt100::Parser::new(rows, cols, 0);
+                        parser.process(&surface.output_history);
+                        let formatted = parser.screen().contents_formatted();
+                        let data = BASE64.encode(&formatted);
+                        Response::success(req.id.clone(), json!({"data": data}))
+                    } else {
+                        Response::error(req.id.clone(), "not_found", "Surface not found")
+                    }
+                }
+                Err(_) => Response::error(req.id.clone(), "invalid_id", "Invalid UUID"),
+            }
+        }
+
         _ => Response::error(
             req.id.clone(),
             "unknown_method",

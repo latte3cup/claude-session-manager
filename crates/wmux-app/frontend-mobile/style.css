@@ -1,0 +1,174 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #002b36;
+  --fg: #b0bec5;
+  --accent: #268bd2;
+  --tab-bg: #073642;
+  --tab-active: #0d4a6b;
+  --header-bg: #001f28;
+  --key-bg: #073642;
+  --key-hover: #0a4f6a;
+  --error: #dc322f;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, 'Malgun Gothic', sans-serif;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+/* Auth Screen */
+#auth-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100dvh;
+  background: var(--bg);
+}
+
+.auth-box {
+  text-align: center;
+  padding: 2rem;
+}
+
+.auth-box h2 {
+  font-size: 1.4rem;
+  margin-bottom: 1rem;
+  color: var(--accent);
+}
+
+.auth-box p {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.auth-box input {
+  display: block;
+  width: 200px;
+  margin: 0 auto 1rem;
+  padding: 0.8rem;
+  font-size: 1.5rem;
+  text-align: center;
+  letter-spacing: 0.5em;
+  background: var(--tab-bg);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--fg);
+  outline: none;
+}
+
+.auth-box button {
+  padding: 0.6rem 2rem;
+  font-size: 1rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.error { color: var(--error); margin-top: 0.5rem; font-size: 0.85rem; }
+
+/* App Layout */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+#header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: var(--header-bg);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+#session-title {
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#connection-status {
+  color: #859900;
+  font-size: 0.75rem;
+}
+
+/* Terminal */
+#terminal-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+#terminal-area .xterm {
+  height: 100%;
+}
+
+/* Special Keys Toolbar */
+#special-keys {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--header-bg);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+#special-keys button {
+  padding: 6px 12px;
+  background: var(--key-bg);
+  color: var(--fg);
+  border: 1px solid #586e75;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+#special-keys button:active {
+  background: var(--key-hover);
+}
+
+/* Tab Bar */
+#tab-bar {
+  display: flex;
+  background: var(--header-bg);
+  padding: 4px 8px;
+  padding-bottom: calc(4px + var(--safe-bottom));
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.tab {
+  flex: 1;
+  padding: 8px 0;
+  text-align: center;
+  background: var(--tab-bg);
+  color: var(--fg);
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tab.active {
+  background: var(--tab-active);
+  color: #fff;
+  font-weight: bold;
+}
+
+.tab.exited {
+  opacity: 0.4;
+}

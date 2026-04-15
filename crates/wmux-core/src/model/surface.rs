@@ -3,6 +3,8 @@ use std::io::Write;
 use uuid::Uuid;
 use vt100::Parser;
 
+const MAX_OUTPUT_HISTORY: usize = 256 * 1024; // 256KB
+
 #[allow(dead_code)]
 pub struct Surface {
     pub id: Uuid,
@@ -13,6 +15,7 @@ pub struct Surface {
     pub exited: Option<i32>,
     pub parser: Parser,
     pub pty: Option<PtyHandle>,
+    pub output_history: Vec<u8>,
 }
 
 impl Surface {
@@ -27,6 +30,7 @@ impl Surface {
             exited: None,
             parser: Parser::new(rows, cols, 1000),
             pty: Some(pty),
+            output_history: Vec::new(),
         }
     }
 
@@ -34,6 +38,12 @@ impl Surface {
     pub fn process_output(&mut self, data: &[u8]) {
         self.parser.process(data);
         self.dirty = true;
+        // Accumulate raw output for session replay
+        self.output_history.extend_from_slice(data);
+        if self.output_history.len() > MAX_OUTPUT_HISTORY {
+            let drain = self.output_history.len() - MAX_OUTPUT_HISTORY;
+            self.output_history.drain(..drain);
+        }
     }
 
     /// Write text to the PTY (user input).

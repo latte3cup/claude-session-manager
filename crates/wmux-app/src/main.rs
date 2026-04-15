@@ -5,20 +5,25 @@ use base64::Engine;
 use serde::Serialize;
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{broadcast, mpsc, Mutex};
 use uuid::Uuid;
 use wmux_core::terminal::shell::detect_shell;
 use wmux_core::WmuxCore;
+
+mod remote;
 
 /// Shared application state accessible from Tauri commands
 ///
 /// `pty_tx` and `exit_tx` are held here to keep the channel senders alive;
 /// dropping them would close the channels and terminate the PTY reader loops.
 #[allow(dead_code)]
-struct AppState {
-    core: Mutex<WmuxCore>,
-    pty_tx: mpsc::UnboundedSender<(Uuid, Vec<u8>)>,
-    exit_tx: mpsc::UnboundedSender<Uuid>,
+pub struct AppState {
+    pub core: Mutex<WmuxCore>,
+    pub pty_tx: mpsc::UnboundedSender<(Uuid, Vec<u8>)>,
+    pub exit_tx: mpsc::UnboundedSender<Uuid>,
+    pub pty_broadcast: broadcast::Sender<(Uuid, Vec<u8>)>,
+    pub exit_broadcast: broadcast::Sender<Uuid>,
+    pub auth_token: String,
 }
 
 #[derive(Clone, Serialize)]
@@ -441,20 +446,41 @@ fn main() {
                 eprintln!("Failed to create initial workspace: {}", e);
             }
 
+            // Broadcast channels for remote clients
+            let (pty_bcast_tx, _) = broadcast::channel::<(Uuid, Vec<u8>)>(256);
+            let (exit_bcast_tx, _) = broadcast::channel::<Uuid>(64);
+
+            // Generate 6-digit PIN for remote auth
+            let auth_token = format!("{:06}", rand::random::<u32>() % 1_000_000);
+            eprintln!("[remote] PIN: {}", auth_token);
+
             // Store state
             let state = Arc::new(AppState {
                 core: Mutex::new(core),
                 pty_tx,
                 exit_tx,
+                pty_broadcast: pty_bcast_tx,
+                exit_broadcast: exit_bcast_tx,
+                auth_token,
             });
             app.manage(state.clone());
 
-            // Spawn channel-to-event bridge
+            // Spawn channel-to-event bridge (fan-out to Tauri + broadcast)
             let bridge_state = state.clone();
+            let pty_bcast = state.pty_broadcast.clone();
+            let exit_bcast = state.exit_broadcast.clone();
             tauri::async_runtime::spawn(async move {
                 loop {
                     tokio::select! {
                         Some((id, data)) = pty_rx.recv() => {
+                            // Feed into vt100 parser + output_history
+                            {
+                                let mut core = bridge_state.core.lock().await;
+                                core.process_pty_output(id, &data);
+                            }
+                            // Fan-out to broadcast (for WebSocket clients)
+                            let _ = pty_bcast.send((id, data.clone()));
+                            // Tauri emit (for desktop UI)
                             let payload = PtyOutputPayload {
                                 surface_id: id.to_string(),
                                 data: BASE64.encode(&data),
@@ -466,7 +492,9 @@ fn main() {
                             let mut core = bridge_state.core.lock().await;
                             core.handle_pty_exit(id);
                             drop(core);
-
+                            // Fan-out to broadcast
+                            let _ = exit_bcast.send(id);
+                            // Tauri emit
                             let payload = PtyExitPayload {
                                 surface_id: id.to_string(),
                             };
@@ -474,6 +502,14 @@ fn main() {
                         }
                         else => break,
                     }
+                }
+            });
+
+            // Start remote WebSocket/HTTP server
+            let remote_state = state.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = remote::start_remote_server(remote_state, 9784).await {
+                    eprintln!("[remote] server error: {}", e);
                 }
             });
 
