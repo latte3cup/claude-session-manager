@@ -246,7 +246,7 @@ body { display: flex; flex-direction: column; }
   padding: 0 8px;
 }
 #app-title { font-size: 11px; font-weight: 600; color: var(--text-bright); }
-#header-actions { display: flex; gap: 4px; }
+#header-actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
 #header-actions button {
   background: none; border: none; color: var(--text); font-size: 14px;
   cursor: pointer; padding: 4px 8px; border-radius: 4px;
@@ -254,6 +254,11 @@ body { display: flex; flex-direction: column; }
 #header-actions button:hover { background: rgba(147,161,161,0.1); color: var(--text-bright); }
 #header-actions .close-btn:hover { background: #e0284a; color: white; }
 .header-sep { width: 1px; height: 14px; background: var(--border); margin: 0 2px; }
+.remote-header-info {
+  font-size: 11px; color: var(--text); font-family: 'Cascadia Mono', Consolas, monospace;
+  margin-right: 8px; opacity: 0.7; user-select: all; cursor: text; white-space: nowrap;
+}
+.remote-header-info:hover { opacity: 1; color: var(--text-bright); }
 
 /* Settings Modal */
 .modal-overlay {

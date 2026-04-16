@@ -1,7 +1,7 @@
 import * as tm from './terminal-manager.js';
 import { refreshLayout, setupResizeHandler } from './layout.js';
 import { showContextMenu } from './context-menu.js';
-import { setupSettings, loadSettings, getSettings, setOnSettingsChange, setupWindowControls } from './settings.js';
+import { setupSettings, loadSettings, getSettings, setOnSettingsChange, setupWindowControls, initRemoteHeader } from './settings.js';
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -52,6 +52,7 @@ async function init() {
   setupSettings();
   setupWindowControls();
   await loadSettings();
+  initRemoteHeader();
 
   // 타이틀 변경 시 메타데이터 저장
   tm.setOnTitleChange((surfaceId, newTitle) => {

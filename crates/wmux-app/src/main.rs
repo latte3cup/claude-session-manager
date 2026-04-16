@@ -394,7 +394,8 @@ async fn get_remote_info(
     let mut tailscale_ip = None;
 
     if let Ok(output) = std::process::Command::new("ipconfig").output() {
-        if let Ok(text) = String::from_utf8(output.stdout) {
+        {
+            let text = String::from_utf8_lossy(&output.stdout);
             for line in text.lines() {
                 if line.contains("IPv4") {
                     if let Some(ip) = line.split(':').last().map(|s| s.trim().to_string()) {
@@ -554,6 +555,39 @@ fn main() {
                         }
                         else => break,
                     }
+                }
+            });
+
+            // Update window title with remote info
+            let pin = state.auth_token.clone();
+            let title_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                // Wait for window to be ready
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                let mut lan_ip = String::from("127.0.0.1");
+                if let Ok(output) = std::process::Command::new("ipconfig").output() {
+                    {
+            let text = String::from_utf8_lossy(&output.stdout);
+                        for line in text.lines() {
+                            if line.contains("IPv4") {
+                                if let Some(ip) = line.split(':').last().map(|s| s.trim().to_string())
+                                {
+                                    if ip.starts_with("192.168.")
+                                        || ip.starts_with("10.")
+                                        || ip.starts_with("172.")
+                                    {
+                                        lan_ip = ip;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if let Some(win) = title_handle.get_webview_window("main") {
+                    let _ = win.set_title(&format!(
+                        "Claude Session Manager — {}:9784 PIN:{}",
+                        lan_ip, pin
+                    ));
                 }
             });
 

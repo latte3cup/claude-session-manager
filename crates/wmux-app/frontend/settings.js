@@ -67,7 +67,6 @@ export function setupWindowControls() {
 export function setupSettings() {
   const modal = document.getElementById('settings-modal');
   const btnSettings = document.getElementById('btn-settings');
-  const btnRemote = document.getElementById('btn-remote');
   const btnClose = document.getElementById('settings-close');
 
   const openModal = () => {
@@ -78,7 +77,6 @@ export function setupSettings() {
   };
 
   btnSettings.addEventListener('click', openModal);
-  btnRemote.addEventListener('click', openModal);
   btnClose.addEventListener('click', () => { modal.style.display = 'none'; });
   modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
 
@@ -108,7 +106,15 @@ async function loadRemoteInfo() {
     } else {
       document.getElementById('remote-ts-row').style.display = 'none';
     }
+    // Update header text
+    document.getElementById('remote-header-info').textContent =
+      `${info.lan_ip}:${info.port} PIN:${info.pin}`;
   } catch {}
+}
+
+// Load remote info into header on startup
+export async function initRemoteHeader() {
+  await loadRemoteInfo();
 }
 
 function renderOptions() {
