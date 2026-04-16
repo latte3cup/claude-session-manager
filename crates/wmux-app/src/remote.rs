@@ -26,9 +26,15 @@ use wmux_core::socket::protocol::Request;
 struct SendParser(vt100::Parser);
 unsafe impl Send for SendParser {}
 impl SendParser {
-    fn new(rows: u16, cols: u16) -> Self { Self(vt100::Parser::new(rows, cols, 0)) }
-    fn process(&mut self, data: &[u8]) { self.0.process(data); }
-    fn screen(&self) -> &vt100::Screen { self.0.screen() }
+    fn new(rows: u16, cols: u16) -> Self {
+        Self(vt100::Parser::new(rows, cols, 0))
+    }
+    fn process(&mut self, data: &[u8]) {
+        self.0.process(data);
+    }
+    fn screen(&self) -> &vt100::Screen {
+        self.0.screen()
+    }
 }
 
 #[derive(Deserialize)]
