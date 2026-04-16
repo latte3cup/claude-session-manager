@@ -27,8 +27,8 @@
     "icon": ["icons/icon.ico"],
     "resources": {
       "../../mcp/dist/bundle*": "mcp/",
-      "frontend-mobile/**": "frontend-mobile/",
-      "frontend/vendor/**": "frontend/vendor/"
+      "frontend-mobile/*": "frontend-mobile/",
+      "frontend/vendor/*": "frontend/vendor/"
     },
     "publisher": "Fernando Menuk",
     "windows": {

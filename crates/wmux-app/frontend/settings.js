@@ -67,15 +67,48 @@ export function setupWindowControls() {
 export function setupSettings() {
   const modal = document.getElementById('settings-modal');
   const btnSettings = document.getElementById('btn-settings');
+  const btnRemote = document.getElementById('btn-remote');
   const btnClose = document.getElementById('settings-close');
 
-  btnSettings.addEventListener('click', () => {
+  const openModal = () => {
     pendingSettings = { ...appSettings };
     modal.style.display = 'flex';
     renderOptions();
-  });
+    loadRemoteInfo();
+  };
+
+  btnSettings.addEventListener('click', openModal);
+  btnRemote.addEventListener('click', openModal);
   btnClose.addEventListener('click', () => { modal.style.display = 'none'; });
   modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+
+  // Copy buttons
+  document.getElementById('btn-copy-pin')?.addEventListener('click', () => {
+    const pin = document.getElementById('remote-pin').textContent;
+    navigator.clipboard.writeText(pin);
+  });
+  document.getElementById('btn-copy-lan')?.addEventListener('click', () => {
+    const url = document.getElementById('remote-lan').textContent;
+    navigator.clipboard.writeText(url);
+  });
+  document.getElementById('btn-copy-ts')?.addEventListener('click', () => {
+    const url = document.getElementById('remote-ts').textContent;
+    navigator.clipboard.writeText(url);
+  });
+}
+
+async function loadRemoteInfo() {
+  try {
+    const info = await invoke('get_remote_info');
+    document.getElementById('remote-pin').textContent = info.pin;
+    document.getElementById('remote-lan').textContent = `http://${info.lan_ip}:${info.port}`;
+    if (info.tailscale_ip) {
+      document.getElementById('remote-ts').textContent = `http://${info.tailscale_ip}:${info.port}`;
+      document.getElementById('remote-ts-row').style.display = '';
+    } else {
+      document.getElementById('remote-ts-row').style.display = 'none';
+    }
+  } catch {}
 }
 
 function renderOptions() {

@@ -376,6 +376,50 @@ async fn window_close(app_handle: tauri::AppHandle) -> Result<(), String> {
     win.close().map_err(|e| e.to_string())
 }
 
+// ── Remote Info ──
+
+#[derive(Clone, Serialize)]
+struct RemoteInfo {
+    pin: String,
+    port: u16,
+    lan_ip: String,
+    tailscale_ip: Option<String>,
+}
+
+#[tauri::command]
+async fn get_remote_info(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<RemoteInfo, String> {
+    let mut lan_ip = String::from("127.0.0.1");
+    let mut tailscale_ip = None;
+
+    if let Ok(output) = std::process::Command::new("ipconfig").output() {
+        if let Ok(text) = String::from_utf8(output.stdout) {
+            for line in text.lines() {
+                if line.contains("IPv4") {
+                    if let Some(ip) = line.split(':').last().map(|s| s.trim().to_string()) {
+                        if ip.starts_with("100.") {
+                            tailscale_ip = Some(ip);
+                        } else if ip.starts_with("192.168.")
+                            || ip.starts_with("10.")
+                            || ip.starts_with("172.")
+                        {
+                            lan_ip = ip;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(RemoteInfo {
+        pin: state.auth_token.clone(),
+        port: 9784,
+        lan_ip,
+        tailscale_ip,
+    })
+}
+
 // ── Config ──
 
 #[tauri::command]
@@ -547,6 +591,7 @@ fn main() {
             window_fullscreen,
             window_devtools,
             window_close,
+            get_remote_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

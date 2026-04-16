@@ -12,6 +12,7 @@
   <div id="app-header" data-tauri-drag-region>
     <span id="app-title">Claude Session Manager</span>
     <div id="header-actions">
+      <button id="btn-remote" title="Remote">&#128225;</button>
       <button id="btn-settings" title="Settings">&#9881;</button>
       <span class="header-sep"></span>
       <button id="btn-minimize" title="Minimize">&#x2500;</button>
@@ -38,6 +39,26 @@
         <div class="setting-group">
           <label>Font</label>
           <div id="font-options" class="option-col"></div>
+        </div>
+        <div class="setting-group">
+          <label>Remote</label>
+          <div id="remote-info">
+            <div class="remote-row">
+              <span class="remote-label">PIN</span>
+              <span id="remote-pin" class="remote-value mono">...</span>
+              <button id="btn-copy-pin" class="copy-btn" title="Copy PIN">copy</button>
+            </div>
+            <div class="remote-row">
+              <span class="remote-label">LAN</span>
+              <span id="remote-lan" class="remote-value mono">...</span>
+              <button id="btn-copy-lan" class="copy-btn" title="Copy URL">copy</button>
+            </div>
+            <div class="remote-row" id="remote-ts-row" style="display:none">
+              <span class="remote-label">VPN</span>
+              <span id="remote-ts" class="remote-value mono">...</span>
+              <button id="btn-copy-ts" class="copy-btn" title="Copy URL">copy</button>
+            </div>
+          </div>
         </div>
         <div id="settings-save-area" class="save-area"></div>
       </div>

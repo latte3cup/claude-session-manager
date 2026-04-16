@@ -295,6 +295,18 @@ body { display: flex; flex-direction: column; }
 .save-btn:not(.disabled):hover { background: rgba(38,139,210,0.3); }
 .save-btn.disabled { opacity: 0.3; cursor: default; border-color: var(--border); color: var(--text); background: transparent; }
 
+/* Remote Info */
+.remote-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.remote-label { font-size: 10px; color: var(--text); width: 28px; flex-shrink: 0; }
+.remote-value { font-size: 12px; color: var(--text-bright); flex: 1; user-select: all; }
+.remote-value.mono { font-family: 'Cascadia Mono', Consolas, monospace; }
+.copy-btn {
+  padding: 2px 8px; font-size: 10px; border-radius: 3px; cursor: pointer;
+  border: 1px solid var(--border); background: transparent; color: var(--text);
+  transition: all 200ms;
+}
+.copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
