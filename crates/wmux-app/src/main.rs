@@ -387,9 +387,7 @@ struct RemoteInfo {
 }
 
 #[tauri::command]
-async fn get_remote_info(
-    state: tauri::State<'_, Arc<AppState>>,
-) -> Result<RemoteInfo, String> {
+async fn get_remote_info(state: tauri::State<'_, Arc<AppState>>) -> Result<RemoteInfo, String> {
     let mut lan_ip = String::from("127.0.0.1");
     let mut tailscale_ip = None;
 
@@ -502,7 +500,11 @@ fn main() {
                 std::fs::read_to_string(&config_path)
                     .ok()
                     .and_then(|c| serde_json::from_str::<serde_json::Value>(&c).ok())
-                    .and_then(|j| j.get("remotePin").and_then(|v| v.as_str()).map(String::from))
+                    .and_then(|j| {
+                        j.get("remotePin")
+                            .and_then(|v| v.as_str())
+                            .map(String::from)
+                    })
                     .unwrap_or_else(|| format!("{:06}", rand::random::<u32>() % 1_000_000))
             };
             eprintln!("[remote] PIN: {}", auth_token);
@@ -567,10 +569,11 @@ fn main() {
                 let mut lan_ip = String::from("127.0.0.1");
                 if let Ok(output) = std::process::Command::new("ipconfig").output() {
                     {
-            let text = String::from_utf8_lossy(&output.stdout);
+                        let text = String::from_utf8_lossy(&output.stdout);
                         for line in text.lines() {
                             if line.contains("IPv4") {
-                                if let Some(ip) = line.split(':').last().map(|s| s.trim().to_string())
+                                if let Some(ip) =
+                                    line.split(':').last().map(|s| s.trim().to_string())
                                 {
                                     if ip.starts_with("192.168.")
                                         || ip.starts_with("10.")
