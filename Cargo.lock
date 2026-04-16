@@ -5725,6 +5725,7 @@ dependencies = [
  "tokio",
  "tower-http",
  "uuid",
+ "vt100",
  "wmux-core",
 ]
 

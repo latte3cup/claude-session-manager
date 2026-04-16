@@ -61,24 +61,16 @@ async function loadSessions() {
     term.createTerminal(sid);
   }
 
-  // Show first terminal to get accurate size, then load screen states
+  // Show first terminal to get accurate size
   if (surfaces.length > 0) {
     term.showTerminal(surfaces[0]);
     await new Promise(r => setTimeout(r, 100)); // let fitAddon measure
   }
 
-  for (const sid of surfaces) {
-    try {
-      const size = term.getTermSize(sid);
-      const out = await client.invoke('surface.screen_state', {
-        id: sid, cols: size.cols, rows: size.rows
-      });
-      if (out.data) {
-        const bytes = Uint8Array.from(atob(out.data), c => c.charCodeAt(0));
-        term.writeOutput(sid, bytes);
-      }
-    } catch {}
-  }
+  // Send terminal size to server → server initializes per-client parsers
+  // and sends initial screen states via pty-output events
+  const size = surfaces.length > 0 ? term.getTermSize(surfaces[0]) : { cols: 80, rows: 24 };
+  await client.invoke('client.init', { cols: size.cols, rows: size.rows });
 
   // Setup input forwarding
   term.setOnInput((surfaceId, data) => {
