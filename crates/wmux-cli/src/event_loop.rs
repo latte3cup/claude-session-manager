@@ -204,19 +204,17 @@ pub async fn run(
                             }
                             // Mouse passthrough for scroll and other events
                             MouseEventKind::ScrollUp | MouseEventKind::ScrollDown
-                            | MouseEventKind::Up(_) | MouseEventKind::Down(_) => {
-                                if drag_state.is_none() {
-                                    if let Some(id) = core.focused_surface {
-                                        if let Some(surface) = core.surfaces.get_mut(&id) {
-                                            if surface.screen().mouse_protocol_mode() != vt100::MouseProtocolMode::None {
-                                                if let Some(ws) = core.workspaces.get(core.active_workspace) {
-                                                    let layouts = ws.split_tree.layout(0, 0, tw, th);
-                                                    if let Some(layout) = layouts.iter().find(|l| l.surface_id == id) {
-                                                        let rel_x = mx.saturating_sub(layout.x + 1);
-                                                        let rel_y = my.saturating_sub(layout.y + 1);
-                                                        if let Some(bytes) = mouse_event_to_sgr_bytes(&mouse, rel_x, rel_y) {
-                                                            let _ = surface.send_bytes(&bytes);
-                                                        }
+                            | MouseEventKind::Up(_) | MouseEventKind::Down(_) if drag_state.is_none() => {
+                                if let Some(id) = core.focused_surface {
+                                    if let Some(surface) = core.surfaces.get_mut(&id) {
+                                        if surface.screen().mouse_protocol_mode() != vt100::MouseProtocolMode::None {
+                                            if let Some(ws) = core.workspaces.get(core.active_workspace) {
+                                                let layouts = ws.split_tree.layout(0, 0, tw, th);
+                                                if let Some(layout) = layouts.iter().find(|l| l.surface_id == id) {
+                                                    let rel_x = mx.saturating_sub(layout.x + 1);
+                                                    let rel_y = my.saturating_sub(layout.y + 1);
+                                                    if let Some(bytes) = mouse_event_to_sgr_bytes(&mouse, rel_x, rel_y) {
+                                                        let _ = surface.send_bytes(&bytes);
                                                     }
                                                 }
                                             }

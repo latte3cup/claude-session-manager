@@ -109,6 +109,16 @@ async function loadRemoteInfo() {
     // Update header text
     document.getElementById('remote-header-info').textContent =
       `${info.lan_ip}:${info.port} PIN:${info.pin}`;
+    // Update VPN status
+    const vpn = document.getElementById('vpn-status');
+    const label = vpn.querySelector('.vpn-label');
+    if (info.tailscale_ip) {
+      label.textContent = 'VPN ON';
+      vpn.className = 'vpn-status on';
+    } else {
+      label.textContent = 'VPN OFF';
+      vpn.className = 'vpn-status off';
+    }
   } catch {}
 }
 
