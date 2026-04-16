@@ -450,8 +450,16 @@ fn main() {
             let (pty_bcast_tx, _) = broadcast::channel::<(Uuid, Vec<u8>)>(256);
             let (exit_bcast_tx, _) = broadcast::channel::<Uuid>(64);
 
-            // Generate 6-digit PIN for remote auth
-            let auth_token = format!("{:06}", rand::random::<u32>() % 1_000_000);
+            // Read PIN from config or generate random
+            let auth_token = {
+                let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\".to_string());
+                let config_path = format!("{}\\.claude-session-manager\\config.json", home);
+                std::fs::read_to_string(&config_path)
+                    .ok()
+                    .and_then(|c| serde_json::from_str::<serde_json::Value>(&c).ok())
+                    .and_then(|j| j.get("remotePin").and_then(|v| v.as_str()).map(String::from))
+                    .unwrap_or_else(|| format!("{:06}", rand::random::<u32>() % 1_000_000))
+            };
             eprintln!("[remote] PIN: {}", auth_token);
 
             // Store state
