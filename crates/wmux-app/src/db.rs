@@ -83,6 +83,14 @@ pub struct LayoutRow {
     pub session_mapping: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptRow {
+    pub id: Option<i64>,
+    pub title: String,
+    pub content: String,
+    pub category: String,
+}
+
 impl Database {
     pub fn open(path: &Path) -> Result<Self> {
         if let Some(parent) = path.parent() {
@@ -371,6 +379,37 @@ impl Database {
     pub fn delete_layout(&self, id: i64) -> Result<()> {
         self.conn
             .execute("DELETE FROM layouts WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    // --- Prompts ---
+
+    pub fn save_prompt(&self, title: &str, content: &str, category: &str) -> Result<i64> {
+        self.conn.execute(
+            "INSERT INTO prompts (title, content, category) VALUES (?1, ?2, ?3)",
+            params![title, content, category],
+        )?;
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    pub fn list_prompts(&self) -> Result<Vec<PromptRow>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, title, content, category FROM prompts ORDER BY title")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(PromptRow {
+                id: Some(row.get(0)?),
+                title: row.get(1)?,
+                content: row.get(2)?,
+                category: row.get(3)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    pub fn delete_prompt(&self, id: i64) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM prompts WHERE id = ?1", params![id])?;
         Ok(())
     }
 }

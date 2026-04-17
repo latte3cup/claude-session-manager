@@ -582,6 +582,34 @@ async fn get_available_clis() -> Result<Vec<String>, String> {
     Ok(wmux_core::terminal::shell::detect_available_clis())
 }
 
+// ── Prompts ──
+
+#[tauri::command]
+async fn db_get_prompts(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<Vec<db::PromptRow>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.list_prompts().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn db_save_prompt(
+    state: tauri::State<'_, Arc<AppState>>,
+    title: String,
+    content: String,
+    category: String,
+) -> Result<i64, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.save_prompt(&title, &content, &category)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn db_delete_prompt(state: tauri::State<'_, Arc<AppState>>, id: i64) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.delete_prompt(id).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 async fn write_file(path: String, content: String) -> Result<(), String> {
     std::fs::write(&path, &content).map_err(|e| e.to_string())
@@ -765,6 +793,9 @@ fn main() {
             db_get_layouts,
             db_delete_layout,
             get_available_clis,
+            db_get_prompts,
+            db_save_prompt,
+            db_delete_prompt,
             window_start_drag,
             window_minimize,
             window_maximize,
