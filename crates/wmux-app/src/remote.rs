@@ -59,9 +59,8 @@ pub async fn start_remote_server(
     // mTLS mode if certs/ exists, otherwise plain HTTP + PIN
     if crate::tls::is_mtls_configured() {
         let tls_config = crate::tls::build_tls_config()?;
-        let rustls_config = axum_server::tls_rustls::RustlsConfig::from_config(
-            std::sync::Arc::new(tls_config),
-        );
+        let rustls_config =
+            axum_server::tls_rustls::RustlsConfig::from_config(std::sync::Arc::new(tls_config));
         eprintln!("[remote] listening on {} (HTTPS + mTLS)", addr);
         axum_server::bind_rustls(addr.parse()?, rustls_config)
             .serve(app.into_make_service())

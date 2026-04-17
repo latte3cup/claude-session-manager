@@ -21,16 +21,19 @@ pub fn is_mtls_configured() -> bool {
 }
 
 /// Load certificates from PEM file
-fn load_certs(path: &Path) -> Result<Vec<CertificateDer<'static>>, Box<dyn std::error::Error + Send + Sync>> {
+fn load_certs(
+    path: &Path,
+) -> Result<Vec<CertificateDer<'static>>, Box<dyn std::error::Error + Send + Sync>> {
     let file = fs::File::open(path)?;
     let mut reader = BufReader::new(file);
-    let certs = rustls_pemfile::certs(&mut reader)
-        .collect::<Result<Vec<_>, _>>()?;
+    let certs = rustls_pemfile::certs(&mut reader).collect::<Result<Vec<_>, _>>()?;
     Ok(certs)
 }
 
 /// Load private key from PEM file
-fn load_private_key(path: &Path) -> Result<PrivateKeyDer<'static>, Box<dyn std::error::Error + Send + Sync>> {
+fn load_private_key(
+    path: &Path,
+) -> Result<PrivateKeyDer<'static>, Box<dyn std::error::Error + Send + Sync>> {
     let file = fs::File::open(path)?;
     let mut reader = BufReader::new(file);
 
@@ -61,7 +64,8 @@ fn load_revoked_cns(dir: &Path) -> Vec<String> {
 }
 
 /// Build rustls ServerConfig with mTLS (client certificate verification)
-pub fn build_tls_config() -> Result<rustls::ServerConfig, Box<dyn std::error::Error + Send + Sync>> {
+pub fn build_tls_config() -> Result<rustls::ServerConfig, Box<dyn std::error::Error + Send + Sync>>
+{
     let dir = certs_dir();
 
     // Load CA certificate for client verification
@@ -72,8 +76,7 @@ pub fn build_tls_config() -> Result<rustls::ServerConfig, Box<dyn std::error::Er
     }
 
     // Build client verifier (require client cert signed by our CA)
-    let client_verifier = WebPkiClientVerifier::builder(Arc::new(root_store))
-        .build()?;
+    let client_verifier = WebPkiClientVerifier::builder(Arc::new(root_store)).build()?;
 
     // Load server cert and key
     let server_certs = load_certs(&dir.join("server.crt"))?;

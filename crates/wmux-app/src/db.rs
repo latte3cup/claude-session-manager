@@ -81,7 +81,9 @@ impl Database {
     // --- Settings ---
 
     pub fn get_setting(&self, key: &str) -> Result<Option<String>> {
-        let mut stmt = self.conn.prepare("SELECT value FROM settings WHERE key = ?1")?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT value FROM settings WHERE key = ?1")?;
         let mut rows = stmt.query(params![key])?;
         if let Some(row) = rows.next()? {
             Ok(Some(row.get(0)?))
@@ -187,8 +189,10 @@ impl Database {
     }
 
     pub fn delete_session(&self, position: i32) -> Result<()> {
-        self.conn
-            .execute("DELETE FROM sessions WHERE position = ?1", params![position])?;
+        self.conn.execute(
+            "DELETE FROM sessions WHERE position = ?1",
+            params![position],
+        )?;
         Ok(())
     }
 
@@ -242,10 +246,8 @@ impl Database {
                             .and_then(|v| v.as_str())
                             .unwrap_or("")
                             .to_string(),
-                        font_size: json
-                            .get("fontSize")
-                            .and_then(|v| v.as_i64())
-                            .unwrap_or(12) as i32,
+                        font_size: json.get("fontSize").and_then(|v| v.as_i64()).unwrap_or(12)
+                            as i32,
                         post_macro: json
                             .get("postMacro")
                             .map(|v| v.to_string())

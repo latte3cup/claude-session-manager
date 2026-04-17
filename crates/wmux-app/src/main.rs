@@ -572,12 +572,9 @@ fn main() {
             // Store state
             // Initialize SQLite database
             let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\".to_string());
-            let db_path = std::path::PathBuf::from(format!(
-                "{}\\.claude-session-manager\\wmux.db",
-                home
-            ));
-            let database = db::Database::open(&db_path)
-                .expect("Failed to open database");
+            let db_path =
+                std::path::PathBuf::from(format!("{}\\.claude-session-manager\\wmux.db", home));
+            let database = db::Database::open(&db_path).expect("Failed to open database");
 
             // Run JSON migration if needed
             let workspace_root = get_workspace_root_path();

@@ -388,7 +388,10 @@ pub fn dispatch(
         }
 
         "surface.focused" => {
-            let id = core.focused_surface.map(|id| id.to_string()).unwrap_or_default();
+            let id = core
+                .focused_surface
+                .map(|id| id.to_string())
+                .unwrap_or_default();
             Response::success(req.id.clone(), json!({"id": id}))
         }
 
