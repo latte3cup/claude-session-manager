@@ -12,6 +12,7 @@ use wmux_core::WmuxCore;
 
 mod db;
 mod remote;
+mod tls;
 
 /// Shared application state accessible from Tauri commands
 ///

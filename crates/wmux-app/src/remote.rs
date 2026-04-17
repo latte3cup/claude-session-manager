@@ -55,9 +55,23 @@ pub async fn start_remote_server(
         .with_state(state);
 
     let addr = format!("0.0.0.0:{}", port);
-    eprintln!("[remote] listening on {}", addr);
-    let listener = tokio::net::TcpListener::bind(&addr).await?;
-    axum::serve(listener, app).await?;
+
+    // mTLS mode if certs/ exists, otherwise plain HTTP + PIN
+    if crate::tls::is_mtls_configured() {
+        let tls_config = crate::tls::build_tls_config()?;
+        let rustls_config = axum_server::tls_rustls::RustlsConfig::from_config(
+            std::sync::Arc::new(tls_config),
+        );
+        eprintln!("[remote] listening on {} (HTTPS + mTLS)", addr);
+        axum_server::bind_rustls(addr.parse()?, rustls_config)
+            .serve(app.into_make_service())
+            .await?;
+    } else {
+        eprintln!("[remote] listening on {} (HTTP + PIN)", addr);
+        let listener = tokio::net::TcpListener::bind(&addr).await?;
+        axum::serve(listener, app).await?;
+    }
+
     Ok(())
 }
 
@@ -66,9 +80,13 @@ async fn ws_handler(
     Query(params): Query<WsParams>,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    let token = params.token.unwrap_or_default();
-    if token != state.auth_token {
-        return StatusCode::UNAUTHORIZED.into_response();
+    // mTLS mode: client cert already verified at TLS layer, skip PIN check
+    // PIN mode: require token parameter
+    if !crate::tls::is_mtls_configured() {
+        let token = params.token.unwrap_or_default();
+        if token != state.auth_token {
+            return StatusCode::UNAUTHORIZED.into_response();
+        }
     }
     ws.on_upgrade(move |socket| handle_ws(socket, state))
         .into_response()

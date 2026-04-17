@@ -22,6 +22,10 @@ rand = "0.8"
 futures-util = "0.3"
 vt100 = "0.15"
 rusqlite = { version = "0.31", features = ["bundled"] }
+rustls = "0.23"
+rustls-pemfile = "2"
+tokio-rustls = "0.26"
+axum-server = { version = "0.7", features = ["tls-rustls"] }
 
 [target.'cfg(windows)'.dependencies]
 clipboard-win = "5"
