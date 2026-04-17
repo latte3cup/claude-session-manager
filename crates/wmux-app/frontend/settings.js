@@ -1,14 +1,5 @@
 import { invoke, IS_TAURI } from './transport.js';
 
-let SETTINGS_PATH = '';
-
-async function ensureSettingsPath() {
-  if (!SETTINGS_PATH) {
-    const root = await invoke('get_workspace_root');
-    SETTINGS_PATH = `${root}\\app-settings.json`;
-  }
-}
-
 const LAYOUT_OPTIONS = [
   { value: 2, label: '2 패널' },
   { value: 3, label: '3 패널' },
@@ -29,18 +20,28 @@ export function setOnSettingsChange(callback) { onSettingsChange = callback; }
 export function getSettings() { return appSettings; }
 
 export async function loadSettings() {
-  await ensureSettingsPath();
   try {
-    const text = await invoke('read_file', { path: SETTINGS_PATH });
-    appSettings = { ...appSettings, ...JSON.parse(text) };
-  } catch {}
+    const dbSettings = await invoke('db_get_settings');
+    if (dbSettings && typeof dbSettings === 'object') {
+      if (dbSettings.activePanes) appSettings.activePanes = Number(dbSettings.activePanes);
+      if (dbSettings.fontFamily) appSettings.fontFamily = dbSettings.fontFamily;
+    }
+  } catch {
+    // Fallback: try JSON file (pre-migration)
+    try {
+      const root = await invoke('get_workspace_root');
+      const text = await invoke('read_file', { path: `${root}\\app-settings.json` });
+      appSettings = { ...appSettings, ...JSON.parse(text) };
+    } catch {}
+  }
   return appSettings;
 }
 
 async function saveSettings() {
-  await ensureSettingsPath();
   try {
-    await invoke('write_file', { path: SETTINGS_PATH, content: JSON.stringify(appSettings, null, 2) });
+    await invoke('db_save_settings', {
+      settings: { activePanes: appSettings.activePanes, fontFamily: appSettings.fontFamily }
+    });
   } catch {}
 }
 

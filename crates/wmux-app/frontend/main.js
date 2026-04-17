@@ -425,21 +425,57 @@ const sessionSurfaceMap = {};
 const sessionPaths = {};
 
 async function saveSessionMeta(sessionIndex, meta) {
-  const folder = SESSION_FOLDERS[sessionIndex];
-  const path = `${WORKSPACE_ROOT}\\${folder}\\session.meta.json`;
   sessionMetas[sessionIndex] = meta;
-  // 타이틀 업데이트
   const sid = sessionSurfaceMap[sessionIndex];
-  if (sid) tm.setTitle(sid, sessionPaths[sessionIndex] || `${WORKSPACE_ROOT}\\${folder}`);
+  if (sid) tm.setTitle(sid, sessionPaths[sessionIndex] || `${WORKSPACE_ROOT}\\${SESSION_FOLDERS[sessionIndex]}`);
   try {
-    await invoke('write_file', { path, content: JSON.stringify(meta, null, 2) });
+    const postMacro = typeof meta.postMacro === 'string' ? meta.postMacro : JSON.stringify(meta.postMacro || []);
+    await invoke('db_save_session', {
+      session: {
+        id: meta._dbId || null,
+        project_id: null,
+        title: meta.title || SESSION_FOLDERS[sessionIndex],
+        working_dir: meta.folderPath || null,
+        cli_type: 'terminal',
+        auto_command: meta.autoCommand || '',
+        font_size: meta.fontSize || 12,
+        post_macro: postMacro,
+        post_macro_enabled: meta.postMacroEnabled !== false,
+        position: sessionIndex,
+      }
+    });
   } catch (e) {
-    console.error('Failed to save meta:', e);
+    console.error('Failed to save session meta:', e);
+    // Fallback: save to JSON file
+    try {
+      const folder = SESSION_FOLDERS[sessionIndex];
+      await invoke('write_file', {
+        path: `${WORKSPACE_ROOT}\\${folder}\\session.meta.json`,
+        content: JSON.stringify(meta, null, 2),
+      });
+    } catch {}
   }
 }
 
 async function loadSessionMeta(folder) {
+  const sessionIndex = SESSION_FOLDERS.indexOf(folder);
   const defaults = { title: folder, autoCommand: '', postMacro: [], postMacroEnabled: true };
+  try {
+    const row = await invoke('db_get_session', { position: sessionIndex });
+    if (row && row !== null) {
+      return {
+        ...defaults,
+        _dbId: row.id,
+        title: row.title,
+        folderPath: row.working_dir,
+        autoCommand: row.auto_command,
+        fontSize: row.font_size,
+        postMacro: typeof row.post_macro === 'string' ? JSON.parse(row.post_macro) : row.post_macro,
+        postMacroEnabled: row.post_macro_enabled,
+      };
+    }
+  } catch {}
+  // Fallback: try JSON file
   try {
     const path = `${WORKSPACE_ROOT}\\${folder}\\session.meta.json`;
     const text = await invoke('read_file', { path });

@@ -131,6 +131,12 @@ const COMMAND_MAP = {
   'get_workspace_root': () => wsInvoke('config.workspace_root', {}),
   'get_remote_info': () => Promise.resolve({ pin: '', lan_ip: location.hostname, port: location.port || '9784', tailscale_ip: null }),
 
+  // Database
+  'db_get_settings': () => wsInvoke('db.get_settings', {}),
+  'db_save_settings': (args) => wsInvoke('db.save_settings', { settings: args.settings }),
+  'db_get_session': (args) => wsInvoke('db.get_session', { position: args.position }),
+  'db_save_session': (args) => wsInvoke('db.save_session', { session: args.session }),
+
   // Window controls (no-op in web mode)
   'window_minimize': () => Promise.resolve(),
   'window_maximize': () => Promise.resolve(),

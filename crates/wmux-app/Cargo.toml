@@ -21,6 +21,7 @@ tower-http = { version = "0.6", features = ["fs", "cors"] }
 rand = "0.8"
 futures-util = "0.3"
 vt100 = "0.15"
+rusqlite = { version = "0.31", features = ["bundled"] }
 
 [target.'cfg(windows)'.dependencies]
 clipboard-win = "5"

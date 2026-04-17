@@ -10,6 +10,7 @@ use uuid::Uuid;
 use wmux_core::terminal::shell::detect_shell;
 use wmux_core::WmuxCore;
 
+mod db;
 mod remote;
 
 /// Shared application state accessible from Tauri commands
@@ -19,6 +20,7 @@ mod remote;
 #[allow(dead_code)]
 pub struct AppState {
     pub core: Mutex<WmuxCore>,
+    pub db: std::sync::Mutex<db::Database>,
     pub pty_tx: mpsc::UnboundedSender<(Uuid, Vec<u8>)>,
     pub exit_tx: mpsc::UnboundedSender<Uuid>,
     pub pty_broadcast: broadcast::Sender<(Uuid, Vec<u8>)>,
@@ -457,6 +459,62 @@ async fn save_config(content: String) -> Result<(), String> {
     std::fs::write(&path, &content).map_err(|e| e.to_string())
 }
 
+// ── Database ──
+
+#[tauri::command]
+async fn db_get_settings(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<serde_json::Value, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let pairs = db.get_all_settings().map_err(|e| e.to_string())?;
+    let mut map = serde_json::Map::new();
+    for (k, v) in pairs {
+        // Try to parse as JSON value, fallback to string
+        let val = serde_json::from_str(&v).unwrap_or(serde_json::Value::String(v));
+        map.insert(k, val);
+    }
+    Ok(serde_json::Value::Object(map))
+}
+
+#[tauri::command]
+async fn db_save_settings(
+    state: tauri::State<'_, Arc<AppState>>,
+    settings: serde_json::Value,
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    if let Some(obj) = settings.as_object() {
+        for (k, v) in obj {
+            let val = match v {
+                serde_json::Value::String(s) => s.clone(),
+                other => other.to_string(),
+            };
+            db.set_setting(k, &val).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn db_get_session(
+    state: tauri::State<'_, Arc<AppState>>,
+    position: i32,
+) -> Result<serde_json::Value, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    match db.get_session(position).map_err(|e| e.to_string())? {
+        Some(session) => serde_json::to_value(session).map_err(|e| e.to_string()),
+        None => Ok(serde_json::Value::Null),
+    }
+}
+
+#[tauri::command]
+async fn db_save_session(
+    state: tauri::State<'_, Arc<AppState>>,
+    session: db::SessionRow,
+) -> Result<i64, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.save_session(&session).map_err(|e| e.to_string())
+}
+
 // ── File Access ──
 
 #[tauri::command]
@@ -511,8 +569,24 @@ fn main() {
             eprintln!("[remote] PIN: {}", auth_token);
 
             // Store state
+            // Initialize SQLite database
+            let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\".to_string());
+            let db_path = std::path::PathBuf::from(format!(
+                "{}\\.claude-session-manager\\wmux.db",
+                home
+            ));
+            let database = db::Database::open(&db_path)
+                .expect("Failed to open database");
+
+            // Run JSON migration if needed
+            let workspace_root = get_workspace_root_path();
+            if database.needs_migration() {
+                let _ = database.migrate_from_json(&workspace_root);
+            }
+
             let state = Arc::new(AppState {
                 core: Mutex::new(core),
+                db: std::sync::Mutex::new(database),
                 pty_tx,
                 exit_tx,
                 pty_broadcast: pty_bcast_tx,
@@ -623,6 +697,10 @@ fn main() {
             save_config,
             read_file,
             write_file,
+            db_get_settings,
+            db_save_settings,
+            db_get_session,
+            db_save_session,
             window_start_drag,
             window_minimize,
             window_maximize,
