@@ -396,7 +396,7 @@ async fn get_remote_info(state: tauri::State<'_, Arc<AppState>>) -> Result<Remot
             let text = String::from_utf8_lossy(&output.stdout);
             for line in text.lines() {
                 if line.contains("IPv4") {
-                    if let Some(ip) = line.split(':').last().map(|s| s.trim().to_string()) {
+                    if let Some(ip) = line.split(':').next_back().map(|s| s.trim().to_string()) {
                         if ip.starts_with("100.") {
                             tailscale_ip = Some(ip);
                         } else if ip.starts_with("192.168.")
@@ -573,7 +573,7 @@ fn main() {
                         for line in text.lines() {
                             if line.contains("IPv4") {
                                 if let Some(ip) =
-                                    line.split(':').last().map(|s| s.trim().to_string())
+                                    line.split(':').next_back().map(|s| s.trim().to_string())
                                 {
                                     if ip.starts_with("192.168.")
                                         || ip.starts_with("10.")

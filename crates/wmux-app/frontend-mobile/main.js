@@ -5,6 +5,7 @@ let client = null;
 let surfaces = [];
 let activeIdx = 0;
 const exitedSurfaces = new Set();
+let lastSentSize = { cols: 0, rows: 0 };
 
 // Auth
 document.getElementById('pin-submit').addEventListener('click', doAuth);
@@ -67,13 +68,14 @@ async function loadSessions() {
     await new Promise(r => setTimeout(r, 100)); // let fitAddon measure
   }
 
-  // Send terminal size to server → server initializes per-client parsers
-  // and sends initial screen states via pty-output events
+  // Send terminal size to server → server resizes PTYs to match mobile
   const size = surfaces.length > 0 ? term.getTermSize(surfaces[0]) : { cols: 80, rows: 24 };
+  lastSentSize = { cols: size.cols, rows: size.rows };
   await client.invoke('client.init', { cols: size.cols, rows: size.rows });
 
-  // Setup input forwarding
+  // Setup input forwarding — check for size changes on each input
   term.setOnInput((surfaceId, data) => {
+    syncSizeIfChanged();
     client.invoke('surface.send_text', { id: surfaceId, text: data }).catch(() => {});
   });
 
@@ -89,15 +91,10 @@ async function loadSessions() {
     });
   });
 
-  // Handle resize
-  window.addEventListener('resize', () => {
-    term.fitAll();
-  });
-  // Visual viewport resize (mobile keyboard)
+  // Handle resize — just refit xterm.js locally, size sync happens on next input
+  window.addEventListener('resize', () => term.fitAll());
   if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', () => {
-      term.fitAll();
-    });
+    window.visualViewport.addEventListener('resize', () => term.fitAll());
   }
 }
 
@@ -127,6 +124,16 @@ function switchTab(idx) {
   term.showTerminal(sid);
   document.getElementById('session-title').textContent = `Session ${idx + 1}`;
   updateTabs();
+}
+
+function syncSizeIfChanged() {
+  const sid = surfaces[activeIdx];
+  if (!sid) return;
+  const size = term.getTermSize(sid);
+  if (size.cols !== lastSentSize.cols || size.rows !== lastSentSize.rows) {
+    lastSentSize = { cols: size.cols, rows: size.rows };
+    client.invoke('client.init', { cols: size.cols, rows: size.rows }).catch(() => {});
+  }
 }
 
 // Swipe gesture for tab switching
