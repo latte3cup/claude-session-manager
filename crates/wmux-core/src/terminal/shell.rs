@@ -21,3 +21,25 @@ pub fn detect_shell(cli_shell: Option<String>) -> String {
     }
     "powershell.exe".to_string()
 }
+
+/// Detect available CLI tools in PATH
+pub fn detect_available_clis() -> Vec<String> {
+    let candidates = ["claude", "opencode", "kilo"];
+    let mut available = Vec::new();
+
+    for cmd in &candidates {
+        let check = if cfg!(windows) {
+            std::process::Command::new("where").arg(cmd).output()
+        } else {
+            std::process::Command::new("which").arg(cmd).output()
+        };
+
+        if let Ok(output) = check {
+            if output.status.success() {
+                available.push(cmd.to_string());
+            }
+        }
+    }
+
+    available
+}

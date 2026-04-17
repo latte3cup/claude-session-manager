@@ -575,6 +575,13 @@ async fn read_file(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
+// ── CLI Detection ──
+
+#[tauri::command]
+async fn get_available_clis() -> Result<Vec<String>, String> {
+    Ok(wmux_core::terminal::shell::detect_available_clis())
+}
+
 #[tauri::command]
 async fn write_file(path: String, content: String) -> Result<(), String> {
     std::fs::write(&path, &content).map_err(|e| e.to_string())
@@ -757,6 +764,7 @@ fn main() {
             db_save_layout,
             db_get_layouts,
             db_delete_layout,
+            get_available_clis,
             window_start_drag,
             window_minimize,
             window_maximize,

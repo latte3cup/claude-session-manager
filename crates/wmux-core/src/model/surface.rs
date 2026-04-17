@@ -1,14 +1,38 @@
 use crate::terminal::pty::PtyHandle;
+use serde::{Deserialize, Serialize};
 use std::io::Write;
 use uuid::Uuid;
 use vt100::Parser;
 
 const MAX_OUTPUT_HISTORY: usize = 256 * 1024; // 256KB
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub enum CliType {
+    Claude,
+    OpenCode,
+    Kilo,
+    #[default]
+    Terminal,
+    Custom(String),
+}
+
+impl CliType {
+    pub fn command(&self, default_shell: &str) -> String {
+        match self {
+            CliType::Claude => "claude".to_string(),
+            CliType::OpenCode => "opencode".to_string(),
+            CliType::Kilo => "kilo".to_string(),
+            CliType::Terminal => default_shell.to_string(),
+            CliType::Custom(cmd) => cmd.clone(),
+        }
+    }
+}
+
 #[allow(dead_code)]
 pub struct Surface {
     pub id: Uuid,
     pub shell: String,
+    pub cli_type: CliType,
     pub pid: u32,
     pub size: (u16, u16),
     pub dirty: bool,
@@ -24,6 +48,7 @@ impl Surface {
         Self {
             id,
             shell,
+            cli_type: CliType::Terminal,
             pid,
             size: (cols, rows),
             dirty: true,
