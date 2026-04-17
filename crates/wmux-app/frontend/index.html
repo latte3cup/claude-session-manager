@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Claude Session Manager</title>
   <link rel="stylesheet" href="vendor/xterm.css">
   <link rel="stylesheet" href="style.css">
@@ -25,6 +25,12 @@
 
   <!-- Terminal Pane Area -->
   <div id="pane-area"></div>
+
+  <!-- Mobile Special Keys (hidden by default, shown on mobile) -->
+  <div id="mobile-special-keys" style="display:none"></div>
+
+  <!-- Mobile Tab Bar (hidden by default, shown on mobile) -->
+  <div id="mobile-tab-bar" style="display:none"></div>
 
   <!-- Settings Modal -->
   <div id="settings-modal" class="modal-overlay" style="display:none">

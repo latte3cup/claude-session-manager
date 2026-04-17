@@ -2,11 +2,13 @@ import * as tm from './terminal-manager.js';
 import { refreshLayout, setupResizeHandler } from './layout.js';
 import { showContextMenu } from './context-menu.js';
 import { setupSettings, loadSettings, getSettings, setOnSettingsChange, setupWindowControls, initRemoteHeader } from './settings.js';
-
-const { invoke } = window.__TAURI__.core;
-const { listen } = window.__TAURI__.event;
+import { invoke, listen, initTransport, IS_TAURI } from './transport.js';
+import * as mobileUI from './mobile-ui.js';
 
 async function init() {
+  // Transport 초기화 (웹 모드 시 WebSocket 연결)
+  await initTransport();
+
   // WebView2 기본 우클릭 메뉴 + 드래그앤드롭 비활성화
   document.addEventListener('contextmenu', (e) => e.preventDefault());
   document.addEventListener('dragover', (e) => e.preventDefault());
@@ -74,15 +76,17 @@ async function init() {
     }
   });
 
-  // 드래그앤드롭 → 파일 경로 붙여넣기
-  listen('tauri://drag-drop', (event) => {
-    const paths = event.payload?.paths;
-    if (!paths || paths.length === 0) return;
-    const focusedId = tm.getFocusedId();
-    if (!focusedId) return;
-    const text = paths.map(p => p.includes(' ') ? `"${p}"` : p).join(' ');
-    invoke('send_input', { surfaceId: focusedId, data: text });
-  });
+  // 드래그앤드롭 → 파일 경로 붙여넣기 (Tauri 전용)
+  if (IS_TAURI) {
+    listen('tauri://drag-drop', (event) => {
+      const paths = event.payload?.paths;
+      if (!paths || paths.length === 0) return;
+      const focusedId = tm.getFocusedId();
+      if (!focusedId) return;
+      const text = paths.map(p => p.includes(' ') ? `"${p}"` : p).join(' ');
+      invoke('send_input', { surfaceId: focusedId, data: text });
+    });
+  }
 
   // PTY output → route to correct terminal
   listen('pty-output', (event) => {
@@ -129,6 +133,12 @@ async function init() {
   // activePanes 설정에 따라 분할 + autoCommand
   await setupSessions();
   currentPaneCount = Math.min(Math.max(getSettings().activePanes || 4, 2), 4);
+
+  // 모바일 모드 초기화
+  if (mobileUI.isMobileViewport()) {
+    mobileUI.initMobileUI();
+    mobileUI.updateSurfaces(tm.getSurfaceIds());
+  }
 }
 
 // === Session Management ===

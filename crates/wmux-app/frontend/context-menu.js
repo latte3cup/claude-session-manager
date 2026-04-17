@@ -1,4 +1,4 @@
-const { invoke } = window.__TAURI__.core;
+import { invoke } from './transport.js';
 
 let currentMenu = null;
 let currentEditPanel = null;

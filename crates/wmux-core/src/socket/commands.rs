@@ -285,6 +285,113 @@ pub fn dispatch(
             }
         }
 
+        "surface.resize" => {
+            let params = req.params.as_ref().unwrap_or(&Value::Null);
+            let id_str = params.get("id").and_then(|v| v.as_str()).unwrap_or("");
+            let cols = params.get("cols").and_then(|v| v.as_u64()).unwrap_or(80) as u16;
+            let rows = params.get("rows").and_then(|v| v.as_u64()).unwrap_or(24) as u16;
+            match Uuid::parse_str(id_str) {
+                Ok(id) => {
+                    if let Some(surface) = core.surfaces.get_mut(&id) {
+                        surface.resize(cols, rows);
+                        Response::success(req.id.clone(), json!({}))
+                    } else {
+                        Response::error(req.id.clone(), "not_found", "Surface not found")
+                    }
+                }
+                Err(_) => Response::error(req.id.clone(), "invalid_id", "Invalid UUID"),
+            }
+        }
+
+        "surface.kill" => {
+            let params = req.params.as_ref().unwrap_or(&Value::Null);
+            let id_str = params.get("id").and_then(|v| v.as_str()).unwrap_or("");
+            match Uuid::parse_str(id_str) {
+                Ok(id) => {
+                    core.kill_pty(id);
+                    Response::success(req.id.clone(), json!({}))
+                }
+                Err(_) => Response::error(req.id.clone(), "invalid_id", "Invalid UUID"),
+            }
+        }
+
+        "surface.restart" => {
+            let params = req.params.as_ref().unwrap_or(&Value::Null);
+            let id_str = params.get("id").and_then(|v| v.as_str()).unwrap_or("");
+            match Uuid::parse_str(id_str) {
+                Ok(id) => match core.restart_pty(id, pty_tx, exit_tx) {
+                    Ok(()) => Response::success(req.id.clone(), json!({})),
+                    Err(e) => Response::error(req.id.clone(), "restart_failed", &e.to_string()),
+                },
+                Err(_) => Response::error(req.id.clone(), "invalid_id", "Invalid UUID"),
+            }
+        }
+
+        "surface.focus_direction" => {
+            let params = req.params.as_ref().unwrap_or(&Value::Null);
+            let dir = params
+                .get("direction")
+                .and_then(|v| v.as_str())
+                .unwrap_or("right");
+            let focus_dir = match dir {
+                "up" => crate::FocusDirection::Up,
+                "down" => crate::FocusDirection::Down,
+                "left" => crate::FocusDirection::Left,
+                _ => crate::FocusDirection::Right,
+            };
+            core.focus_direction(focus_dir);
+            Response::success(req.id.clone(), json!({}))
+        }
+
+        "layout.get" => {
+            let params = req.params.as_ref().unwrap_or(&Value::Null);
+            let width = params.get("width").and_then(|v| v.as_u64()).unwrap_or(80) as u16;
+            let height = params.get("height").and_then(|v| v.as_u64()).unwrap_or(24) as u16;
+
+            if let Some(ws) = core.active_workspace_ref() {
+                let layouts = ws.split_tree.layout(0, 0, width, height);
+                let panes: Vec<Value> = layouts
+                    .iter()
+                    .map(|l| {
+                        json!({
+                            "surface_id": l.surface_id.to_string(),
+                            "x": l.x,
+                            "y": l.y,
+                            "width": l.width,
+                            "height": l.height,
+                            "is_focused": core.focused_surface == Some(l.surface_id),
+                        })
+                    })
+                    .collect();
+                let surface_ids: Vec<String> =
+                    layouts.iter().map(|l| l.surface_id.to_string()).collect();
+                Response::success(
+                    req.id.clone(),
+                    json!({"panes": panes, "surface_ids": surface_ids}),
+                )
+            } else {
+                Response::success(req.id.clone(), json!({"panes": [], "surface_ids": []}))
+            }
+        }
+
+        "layout.set_ratio" => {
+            let params = req.params.as_ref().unwrap_or(&Value::Null);
+            let path: Vec<bool> = params
+                .get("path")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter().filter_map(|v| v.as_bool()).collect())
+                .unwrap_or_default();
+            let ratio = params.get("ratio").and_then(|v| v.as_f64()).unwrap_or(0.5);
+            core.set_ratio_at(&path, ratio);
+            core.resize_active_workspace();
+            Response::success(req.id.clone(), json!({}))
+        }
+
+        "surface.focused" => {
+            let id = core.focused_surface.map(|id| id.to_string()).unwrap_or_default();
+            Response::success(req.id.clone(), json!({"id": id}))
+        }
+
         _ => Response::error(
             req.id.clone(),
             "unknown_method",

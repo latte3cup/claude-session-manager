@@ -1,6 +1,5 @@
 import * as tm from './terminal-manager.js';
-
-const { invoke } = window.__TAURI__.core;
+import { invoke } from './transport.js';
 
 let resizeTimeout = null;
 let refreshInFlight = null;

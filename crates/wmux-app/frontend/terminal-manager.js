@@ -1,8 +1,7 @@
 import { Terminal } from './vendor/xterm.mjs';
 import { FitAddon } from './vendor/addon-fit.mjs';
 import { WebglAddon } from './vendor/addon-webgl.mjs';
-
-const { invoke } = window.__TAURI__.core;
+import { invoke } from './transport.js';
 
 async function pasteToTerminal(surfaceId) {
   // 1. 클립보드에 파일이 있으면 경로를 텍스트로 붙여넣기
@@ -185,7 +184,7 @@ export function createTerminal(surfaceId) {
     term.options.fontSize = next;
     fitAddon.fit();
     // 크기 변경 후 PTY resize
-    window.__TAURI__.core.invoke('resize_terminal', {
+    invoke('resize_terminal', {
       surfaceId, cols: term.cols, rows: term.rows,
     });
     // 콜백으로 저장 알림
@@ -196,12 +195,12 @@ export function createTerminal(surfaceId) {
     if (surfaceId === focusedId && onInputCallback) onInputCallback(surfaceId, data);
   });
 
-  container.addEventListener('mousedown', () => {
-    window.__TAURI__.core.invoke('focus_pane', { surfaceId });
+  container.addEventListener('pointerdown', () => {
+    invoke('focus_pane', { surfaceId });
   });
 
   // 휠 클릭(중간 버튼) → 맨 아래로 즉시 이동
-  container.addEventListener('mousedown', (e) => {
+  container.addEventListener('pointerdown', (e) => {
     if (e.button === 1) {
       e.preventDefault();
       term.scrollToBottom();

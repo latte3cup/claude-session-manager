@@ -19,7 +19,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tower_http::services::ServeDir;
 use wmux_core::socket::commands::dispatch;
-use wmux_core::socket::protocol::Request;
+use wmux_core::socket::protocol::{Request, Response};
 
 #[derive(Deserialize)]
 struct WsParams {
@@ -35,10 +35,11 @@ pub async fn start_remote_server(
         .and_then(|p| p.parent().map(|d| d.to_path_buf()))
         .unwrap_or_default();
 
-    let mobile_dir = if std::path::Path::new("frontend-mobile").exists() {
-        std::path::PathBuf::from("frontend-mobile")
+    // Unified frontend: serve frontend/ for both Tauri and web
+    let frontend_dir = if std::path::Path::new("frontend").exists() {
+        std::path::PathBuf::from("frontend")
     } else {
-        exe_dir.join("frontend-mobile")
+        exe_dir.join("frontend")
     };
 
     let vendor_dir = if std::path::Path::new("frontend/vendor").exists() {
@@ -50,7 +51,7 @@ pub async fn start_remote_server(
     let app = Router::new()
         .route("/ws", get(ws_handler))
         .nest_service("/vendor", ServeDir::new(vendor_dir))
-        .fallback_service(ServeDir::new(mobile_dir))
+        .fallback_service(ServeDir::new(frontend_dir))
         .with_state(state);
 
     let addr = format!("0.0.0.0:{}", port);
@@ -83,7 +84,7 @@ async fn handle_ws(socket: WebSocket, state: Arc<AppState>) {
     let mut pty_rx = state.pty_broadcast.subscribe();
     let mut exit_rx = state.exit_broadcast.subscribe();
 
-    // Writer task: forwards PTY output directly (no re-rendering)
+    // Writer task: forwards PTY output directly
     let mut ws_tx = ws_tx;
     let write_task = tokio::spawn(async move {
         loop {
@@ -142,7 +143,7 @@ async fn handle_ws(socket: WebSocket, state: Arc<AppState>) {
             Err(_) => continue,
         };
 
-        // client.init: resize all surface PTYs to mobile size
+        // client.init: resize all surface PTYs to client size + activate streaming
         if req.method == "client.init" {
             let params_val = req.params.as_ref().unwrap_or(&serde_json::Value::Null);
             let cols = params_val
@@ -168,6 +169,27 @@ async fn handle_ws(socket: WebSocket, state: Arc<AppState>) {
             continue;
         }
 
+        // Web-only RPC: filesystem access
+        if req.method == "fs.read" {
+            let resp = handle_fs_read(&req);
+            let _ = out_tx.send(serde_json::to_string(&resp).unwrap_or_default());
+            continue;
+        }
+        if req.method == "fs.write" {
+            let resp = handle_fs_write(&req);
+            let _ = out_tx.send(serde_json::to_string(&resp).unwrap_or_default());
+            continue;
+        }
+
+        // Web-only RPC: config
+        if req.method == "config.workspace_root" {
+            let root = crate::get_workspace_root_path();
+            let resp = Response::success(req.id.clone(), json!(root));
+            let _ = out_tx.send(serde_json::to_string(&resp).unwrap_or_default());
+            continue;
+        }
+
+        // All other commands → wmux-core dispatch
         let mut core = state.core.lock().await;
         let resp = dispatch(&mut core, &req, &state.pty_tx, &state.exit_tx);
         drop(core);
@@ -199,4 +221,23 @@ async fn handle_ws(socket: WebSocket, state: Arc<AppState>) {
     }
 
     eprintln!("[remote] client disconnected, desktop size restored");
+}
+
+fn handle_fs_read(req: &Request) -> Response {
+    let params = req.params.as_ref().unwrap_or(&serde_json::Value::Null);
+    let path = params.get("path").and_then(|v| v.as_str()).unwrap_or("");
+    match std::fs::read_to_string(path) {
+        Ok(content) => Response::success(req.id.clone(), json!(content)),
+        Err(e) => Response::error(req.id.clone(), "read_failed", &e.to_string()),
+    }
+}
+
+fn handle_fs_write(req: &Request) -> Response {
+    let params = req.params.as_ref().unwrap_or(&serde_json::Value::Null);
+    let path = params.get("path").and_then(|v| v.as_str()).unwrap_or("");
+    let content = params.get("content").and_then(|v| v.as_str()).unwrap_or("");
+    match std::fs::write(path, content) {
+        Ok(()) => Response::success(req.id.clone(), json!({})),
+        Err(e) => Response::error(req.id.clone(), "write_failed", &e.to_string()),
+    }
 }

@@ -1,4 +1,4 @@
-const { invoke } = window.__TAURI__.core;
+import { invoke, IS_TAURI } from './transport.js';
 
 let SETTINGS_PATH = '';
 
@@ -45,6 +45,14 @@ async function saveSettings() {
 }
 
 export function setupWindowControls() {
+  if (!IS_TAURI) {
+    // 웹 모드: 창 제어 버튼 숨김
+    document.getElementById('btn-minimize')?.style.setProperty('display', 'none');
+    document.getElementById('btn-maximize')?.style.setProperty('display', 'none');
+    document.getElementById('btn-close')?.style.setProperty('display', 'none');
+    return;
+  }
+
   document.getElementById('btn-minimize')?.addEventListener('click', (e) => { e.stopPropagation(); invoke('window_minimize'); });
   document.getElementById('btn-maximize')?.addEventListener('click', (e) => { e.stopPropagation(); invoke('window_maximize'); });
   document.getElementById('btn-close')?.addEventListener('click', (e) => {
@@ -53,7 +61,7 @@ export function setupWindowControls() {
   });
 
   const header = document.getElementById('app-header');
-  header?.addEventListener('mousedown', (e) => {
+  header?.addEventListener('pointerdown', (e) => {
     if (e.target.tagName === 'BUTTON') return;
     invoke('window_start_drag');
   });

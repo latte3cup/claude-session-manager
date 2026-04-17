@@ -421,24 +421,25 @@ async fn get_remote_info(state: tauri::State<'_, Arc<AppState>>) -> Result<Remot
 
 // ── Config ──
 
-#[tauri::command]
-async fn get_workspace_root() -> Result<String, String> {
-    // 1. config.json 파일
+pub fn get_workspace_root_path() -> String {
     let home = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\".to_string());
     let config_path = format!("{}\\.claude-session-manager\\config.json", home);
     if let Ok(content) = std::fs::read_to_string(&config_path) {
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
             if let Some(root) = json.get("workspaceRoot").and_then(|v| v.as_str()) {
-                return Ok(root.to_string());
+                return root.to_string();
             }
         }
     }
-    // 2. 환경변수
     if let Ok(val) = std::env::var("CLAUDE_SESSION_WORKSPACE") {
-        return Ok(val);
+        return val;
     }
-    // 3. 기본값
-    Ok(format!("{}\\Claude Workspace", home))
+    format!("{}\\Claude Workspace", home)
+}
+
+#[tauri::command]
+async fn get_workspace_root() -> Result<String, String> {
+    Ok(get_workspace_root_path())
 }
 
 #[tauri::command]
