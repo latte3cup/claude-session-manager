@@ -4,6 +4,7 @@ import { showContextMenu } from './context-menu.js';
 import { setupSettings, loadSettings, getSettings, setOnSettingsChange, setupWindowControls, initRemoteHeader } from './settings.js';
 import { invoke, listen, initTransport, IS_TAURI } from './transport.js';
 import * as mobileUI from './mobile-ui.js';
+import { initSidebar } from './project-sidebar.js';
 
 async function init() {
   // Transport 초기화 (웹 모드 시 WebSocket 연결)
@@ -53,6 +54,7 @@ async function init() {
   setupResizeHandler();
   setupSettings();
   setupWindowControls();
+  initSidebar();
   await loadSettings();
   initRemoteHeader();
 

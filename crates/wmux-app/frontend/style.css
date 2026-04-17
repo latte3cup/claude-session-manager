@@ -335,6 +335,55 @@ body { display: flex; flex-direction: column; }
 .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
 .xterm-viewport::-webkit-scrollbar-thumb { background: #586e75; border-radius: 3px; }
 
+/* ===== Project Sidebar ===== */
+#project-sidebar {
+  position: fixed;
+  top: 20px; left: 0; bottom: 0;
+  width: 200px;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+}
+#project-sidebar ~ #pane-area { margin-left: 200px; }
+.sidebar-header {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-bright);
+  border-bottom: 1px solid var(--border);
+}
+.project-list { flex: 1; overflow-y: auto; }
+.project-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--text-bright);
+  cursor: pointer;
+}
+.project-item:hover { background: rgba(147,161,161,0.1); }
+.project-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-delete {
+  background: none; border: none; color: var(--text); cursor: pointer;
+  font-size: 12px; padding: 0 4px; opacity: 0;
+}
+.project-item:hover .project-delete { opacity: 1; }
+.project-delete:hover { color: var(--red); }
+.sidebar-add {
+  padding: 8px 12px;
+  font-size: 10px;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border);
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+}
+.sidebar-add:hover { background: rgba(38,139,210,0.1); }
+
 /* ===== Mobile Special Keys ===== */
 #mobile-special-keys {
   display: none;

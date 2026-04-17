@@ -15,12 +15,20 @@
       <span id="vpn-status" class="vpn-status off"><span class="vpn-dot"></span><span class="vpn-label">VPN OFF</span></span>
       <span class="vpn-sep"></span>
       <span id="remote-header-info" class="remote-header-info"></span>
+      <button id="btn-projects" title="Projects">&#9776;</button>
       <button id="btn-settings" title="Settings">&#9881;</button>
       <span class="header-sep"></span>
       <button id="btn-minimize" title="Minimize">&#x2500;</button>
       <button id="btn-maximize" title="Maximize">&#9633;</button>
       <button id="btn-close" title="Close" class="close-btn">&#10005;</button>
     </div>
+  </div>
+
+  <!-- Project Sidebar -->
+  <div id="project-sidebar" style="display:none">
+    <div class="sidebar-header">Projects</div>
+    <div id="project-list" class="project-list"></div>
+    <button id="btn-add-project" class="sidebar-add">+ New Project</button>
   </div>
 
   <!-- Terminal Pane Area -->

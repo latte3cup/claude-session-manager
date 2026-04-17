@@ -516,6 +516,58 @@ async fn db_save_session(
     db.save_session(&session).map_err(|e| e.to_string())
 }
 
+// ── Projects ──
+
+#[tauri::command]
+async fn db_list_projects(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<Vec<db::ProjectRow>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.list_projects().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn db_upsert_project(
+    state: tauri::State<'_, Arc<AppState>>,
+    name: String,
+    path: String,
+) -> Result<i64, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.upsert_project(&name, &path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn db_delete_project(state: tauri::State<'_, Arc<AppState>>, id: i64) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.delete_project(id).map_err(|e| e.to_string())
+}
+
+// ── Layouts ──
+
+#[tauri::command]
+async fn db_save_layout(
+    state: tauri::State<'_, Arc<AppState>>,
+    layout: db::LayoutRow,
+) -> Result<i64, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.save_layout(&layout).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn db_get_layouts(
+    state: tauri::State<'_, Arc<AppState>>,
+    project_id: Option<i64>,
+) -> Result<Vec<db::LayoutRow>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.get_layouts(project_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn db_delete_layout(state: tauri::State<'_, Arc<AppState>>, id: i64) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    db.delete_layout(id).map_err(|e| e.to_string())
+}
+
 // ── File Access ──
 
 #[tauri::command]
@@ -699,6 +751,12 @@ fn main() {
             db_save_settings,
             db_get_session,
             db_save_session,
+            db_list_projects,
+            db_upsert_project,
+            db_delete_project,
+            db_save_layout,
+            db_get_layouts,
+            db_delete_layout,
             window_start_drag,
             window_minimize,
             window_maximize,

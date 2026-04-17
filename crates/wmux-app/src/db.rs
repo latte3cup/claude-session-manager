@@ -67,6 +67,22 @@ pub struct SessionRow {
     pub position: i32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectRow {
+    pub id: Option<i64>,
+    pub name: String,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LayoutRow {
+    pub id: Option<i64>,
+    pub project_id: Option<i64>,
+    pub name: String,
+    pub split_tree_json: String,
+    pub session_mapping: String,
+}
+
 impl Database {
     pub fn open(path: &Path) -> Result<Self> {
         if let Some(parent) = path.parent() {
@@ -265,6 +281,96 @@ impl Database {
 
         self.set_setting("migrated_from_json", "1")?;
         eprintln!("[db] migration from JSON completed");
+        Ok(())
+    }
+
+    // --- Projects ---
+
+    pub fn upsert_project(&self, name: &str, path: &str) -> Result<i64> {
+        self.conn.execute(
+            "INSERT INTO projects (name, path) VALUES (?1, ?2) ON CONFLICT(path) DO UPDATE SET name = ?1",
+            params![name, path],
+        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id FROM projects WHERE path = ?1")?;
+        let id: i64 = stmt.query_row(params![path], |row| row.get(0))?;
+        Ok(id)
+    }
+
+    pub fn list_projects(&self) -> Result<Vec<ProjectRow>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, name, path FROM projects ORDER BY name")?;
+        let rows = stmt.query_map([], |row| {
+            Ok(ProjectRow {
+                id: Some(row.get(0)?),
+                name: row.get(1)?,
+                path: row.get(2)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    pub fn delete_project(&self, id: i64) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM layouts WHERE project_id = ?1", params![id])?;
+        self.conn
+            .execute("DELETE FROM sessions WHERE project_id = ?1", params![id])?;
+        self.conn
+            .execute("DELETE FROM projects WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    // --- Layouts ---
+
+    pub fn save_layout(&self, layout: &LayoutRow) -> Result<i64> {
+        self.conn.execute(
+            "INSERT INTO layouts (project_id, name, split_tree_json, session_mapping) VALUES (?1, ?2, ?3, ?4)",
+            params![layout.project_id, layout.name, layout.split_tree_json, layout.session_mapping],
+        )?;
+        Ok(self.conn.last_insert_rowid())
+    }
+
+    pub fn get_layouts(&self, project_id: Option<i64>) -> Result<Vec<LayoutRow>> {
+        let mut stmt = if project_id.is_some() {
+            self.conn.prepare(
+                "SELECT id, project_id, name, split_tree_json, session_mapping FROM layouts WHERE project_id = ?1 ORDER BY name",
+            )?
+        } else {
+            self.conn.prepare(
+                "SELECT id, project_id, name, split_tree_json, session_mapping FROM layouts ORDER BY name",
+            )?
+        };
+        let rows = if let Some(pid) = project_id {
+            stmt.query_map(params![pid], |row| {
+                Ok(LayoutRow {
+                    id: Some(row.get(0)?),
+                    project_id: row.get(1)?,
+                    name: row.get(2)?,
+                    split_tree_json: row.get(3)?,
+                    session_mapping: row.get(4)?,
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?
+        } else {
+            stmt.query_map([], |row| {
+                Ok(LayoutRow {
+                    id: Some(row.get(0)?),
+                    project_id: row.get(1)?,
+                    name: row.get(2)?,
+                    split_tree_json: row.get(3)?,
+                    session_mapping: row.get(4)?,
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?
+        };
+        Ok(rows)
+    }
+
+    pub fn delete_layout(&self, id: i64) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM layouts WHERE id = ?1", params![id])?;
         Ok(())
     }
 }
