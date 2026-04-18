@@ -25,7 +25,7 @@ interface MouseEventData {
 }
 
 export type ActivityState = "idle" | "processing" | "done";
-type ThemeMode = "light" | "dark";
+type ThemeMode = "light" | "dark" | "solarized";
 
 interface TerminalProps {
   sessionId: string;
@@ -84,6 +84,7 @@ const STATUS_STYLE: Record<string, React.CSSProperties> = {
 
 function getTerminalPalette(theme: ThemeMode) {
   if (theme === "light") {
+    // Light theme
     return {
       background: "#f5efe0",
       foreground: "#18202b",
@@ -106,9 +107,33 @@ function getTerminalPalette(theme: ThemeMode) {
       brightCyan: "#5c9794",
       brightWhite: "#f5f7fb",
     };
-  }
-
-  return {
+  } else if (theme === "solarized") {
+    // Solarized Dark theme
+    return {
+      background: "#002b36",
+      foreground: "#839496",
+      cursor: "#93a1a1",
+      selectionBackground: "#073642",
+      black: "#073642",
+      red: "#dc322f",
+      green: "#859900",
+      yellow: "#b58900",
+      blue: "#268bd2",
+      magenta: "#d33682",
+      cyan: "#2aa198",
+      white: "#eee8d5",
+      brightBlack: "#586e75",
+      brightRed: "#cb4b16",
+      brightGreen: "#586e75",
+      brightYellow: "#657b83",
+      brightBlue: "#839496",
+      brightMagenta: "#6c71c4",
+      brightCyan: "#93a1a1",
+      brightWhite: "#fdf6e3",
+    };
+  } else {
+    // Dark theme (default)
+    return {
     background: "#161a21",
     foreground: "#d9e1ee",
     cursor: "#f2f5f8",
@@ -130,6 +155,7 @@ function getTerminalPalette(theme: ThemeMode) {
     brightCyan: "#ace6e2",
     brightWhite: "#e7edf7",
   };
+  }
 }
 
 export default function Terminal({

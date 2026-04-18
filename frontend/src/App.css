@@ -186,8 +186,8 @@ button {
   justify-content: space-between;
   position: relative;
   z-index: 200;
-  min-height: 56px;
-  padding: 0 14px;
+  min-height: 36px;
+  padding: 0 10px;
   border-radius: var(--radius-lg);
 }
 
@@ -1718,6 +1718,74 @@ html[data-theme="dark"] {
   --cta-primary-text: var(--accent-contrast);
 }
 
+html[data-theme="solarized"] {
+  color-scheme: dark;
+  --surface-base: #002b36;
+  --surface-0: rgba(0, 54, 66, 0.94);
+  --surface-1: rgba(7, 54, 66, 0.92);
+  --surface-2: #073642;
+  --surface-3: #0a4050;
+  --surface-inset: #00212b;
+  --input-bg: rgba(7, 54, 66, 0.94);
+  --input-readonly-bg: rgba(0, 43, 54, 0.96);
+  --input-border: rgba(147, 161, 161, 0.2);
+  --overlay-backdrop: rgba(0, 20, 26, 0.58);
+  --text-primary: #839496;
+  --text-secondary: #93a1a1;
+  --text-muted: #586e75;
+  --syntax-fg: #839496;
+  --syntax-keyword: #859900;
+  --syntax-string: #2aa198;
+  --syntax-comment: #586e75;
+  --syntax-number: #d33682;
+  --syntax-tag: #268bd2;
+  --syntax-diff-add-bg: rgba(133, 153, 0, 0.12);
+  --syntax-diff-del-bg: rgba(220, 50, 47, 0.12);
+  --accent: #268bd2;
+  --accent-strong: #2aa198;
+  --accent-soft: rgba(38, 139, 210, 0.14);
+  --accent-contrast: #fdf6e3;
+  --success: #859900;
+  --success-soft: rgba(133, 153, 0, 0.14);
+  --warn: #b58900;
+  --warn-soft: rgba(181, 137, 0, 0.14);
+  --danger: #dc322f;
+  --danger-soft: rgba(220, 50, 47, 0.14);
+  --info: #268bd2;
+  --info-soft: rgba(38, 139, 210, 0.14);
+  --border-subtle: rgba(147, 161, 161, 0.12);
+  --border-strong: rgba(147, 161, 161, 0.22);
+  --border-accent: rgba(38, 139, 210, 0.3);
+  --app-gradient: var(--surface-base);
+  --shadow-shell: 0 20px 70px rgba(0, 0, 0, 0.4);
+  --shadow-floating: 0 24px 60px rgba(0, 0, 0, 0.5);
+  --terminal-status-connecting-bg: rgba(181, 137, 0, 0.9);
+  --terminal-status-connecting-text: #002b36;
+  --terminal-status-reconnecting-bg: rgba(203, 75, 22, 0.9);
+  --terminal-status-reconnecting-text: #002b36;
+  --terminal-status-disconnected-bg: rgba(220, 50, 47, 0.88);
+  --terminal-status-disconnected-text: #fdf6e3;
+  --terminal-status-takenover-bg: rgba(108, 113, 196, 0.84);
+  --terminal-status-takenover-text: #fdf6e3;
+  --terminal-status-closed-bg: rgba(88, 110, 117, 0.88);
+  --terminal-status-closed-text: #fdf6e3;
+  --terminal-scrollbar: rgba(88, 110, 117, 0.68);
+  --bg-app: var(--surface-base);
+  --bg-shell: var(--surface-0);
+  --bg-panel: var(--surface-1);
+  --bg-elevated: var(--surface-2);
+  --bg-interactive: var(--surface-2);
+  --bg-interactive-strong: var(--surface-3);
+  --bg-hover: rgba(147, 161, 161, 0.06);
+  --bg-backdrop: var(--overlay-backdrop);
+  --cta-primary: var(--accent);
+  --cta-primary-strong: var(--accent-strong);
+  --cta-primary-soft: var(--accent-soft);
+  --cta-primary-border: var(--border-accent);
+  --cta-primary-shadow: rgba(38, 139, 210, 0.12);
+  --cta-primary-text: var(--accent-contrast);
+}
+
 body {
   background: var(--app-gradient);
   color: var(--text-primary);
@@ -1737,8 +1805,8 @@ body {
 }
 
 .app-header {
-  min-height: 74px;
-  padding: 10px 14px;
+  min-height: 36px;
+  padding: 4px 10px;
   border-radius: 28px;
   background: linear-gradient(180deg, rgba(255,255,255,0.08), transparent), var(--surface-1);
 }

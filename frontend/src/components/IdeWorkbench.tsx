@@ -10,7 +10,7 @@ import type { IdeFileResponse, IdeLanguageStatus, IdeSaveFileResponse } from "..
 interface IdeWorkbenchProps {
   sessionId: string;
   rootPath: string;
-  theme: "light" | "dark";
+  theme: "light" | "dark" | "solarized";
 }
 
 interface FileEntry {
@@ -508,7 +508,7 @@ export default function IdeWorkbench({ sessionId, rootPath, theme }: IdeWorkbenc
       }
 
       monacoRef.current = monaco;
-      monaco.editor.setTheme(themeRef.current === "dark" ? "vs-dark" : "vs");
+      monaco.editor.setTheme(themeRef.current === "light" ? "vs" : "vs-dark");
 
       const editor = monaco.editor.create(host, {
         automaticLayout: true,
@@ -591,7 +591,7 @@ export default function IdeWorkbench({ sessionId, rootPath, theme }: IdeWorkbenc
     if (!monaco) {
       return;
     }
-    monaco.editor.setTheme(theme === "dark" ? "vs-dark" : "vs");
+    monaco.editor.setTheme(theme === "light" ? "vs" : "vs-dark");
   }, [theme]);
 
   useEffect(() => {

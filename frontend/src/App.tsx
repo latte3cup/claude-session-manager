@@ -71,7 +71,7 @@ import {
 } from "./runtime";
 import "./App.css";
 
-type ThemeMode = "light" | "dark";
+type ThemeMode = "light" | "dark" | "solarized";
 type WorkspaceMode = "ephemeral" | "project-layout";
 type PanelSession = Session & { cli_type: "folder" | "git" | "ide" };
 interface OpenAloneSnapshot {
@@ -108,7 +108,9 @@ function getStoredFontSize(key: string, fallback: number): number {
 }
 
 function getStoredTheme(): ThemeMode {
-  return localStorage.getItem("theme") === "dark" ? "dark" : "light";
+  const stored = localStorage.getItem("theme");
+  if (stored === "dark" || stored === "solarized") return stored;
+  return "light";
 }
 
 function getPaneTitle(session: Session): string {
@@ -198,6 +200,11 @@ function buildDesktopFocusContextKey(context: DesktopFocusContext): string {
 export default function App() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [theme, setTheme] = useState<ThemeMode>(() => getStoredTheme());
+  const [terminalTheme, setTerminalTheme] = useState<"auto" | ThemeMode>(() => {
+    const stored = localStorage.getItem("terminalTheme");
+    if (stored === "light" || stored === "dark" || stored === "solarized") return stored;
+    return "auto";
+  });
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectsLoadedOnce, setProjectsLoadedOnce] = useState(false);
   const [layoutRoot, setLayoutRoot] = useState<LayoutNode | null>(null);
@@ -581,9 +588,13 @@ export default function App() {
   }, [terminalFontSize]);
 
   useEffect(() => {
+    localStorage.setItem("terminalTheme", terminalTheme);
+  }, [terminalTheme]);
+
+  useEffect(() => {
     localStorage.setItem("theme", theme);
     document.documentElement.dataset.theme = theme;
-    document.documentElement.style.colorScheme = theme;
+    document.documentElement.style.colorScheme = theme === "light" ? "light" : "dark";
   }, [theme]);
 
   useEffect(() => {
@@ -1648,7 +1659,7 @@ export default function App() {
                 key={`ide-${session.id}-${refreshKey}`}
                 sessionId={session.id}
                 rootPath={session.work_path}
-                theme={theme}
+                theme={terminalThemeMode}
               />
             )
           )}
@@ -1706,6 +1717,8 @@ export default function App() {
     theme,
   ]);
 
+  const terminalThemeMode: ThemeMode = terminalTheme === "auto" ? theme : terminalTheme;
+
   useEffect(() => {
     return () => {
       clearLayoutSaveTimer();
@@ -1741,10 +1754,8 @@ export default function App() {
               {"\u2630"}
             </button>
             <div className="app-brand">
-              <div className="app-brand-mark">RC</div>
               <div className="app-brand-copy">
                 <span className="app-title">Remote Code</span>
-                <span className="app-subtitle">Console Workbench</span>
               </div>
             </div>
           </div>
@@ -1757,14 +1768,6 @@ export default function App() {
               <strong>{activeSessionCount}</strong>
               <span>active sessions</span>
             </div>
-            <button
-              className="chrome-btn theme-toggle"
-              onClick={toggleTheme}
-              title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-              aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-            >
-              {theme === "light" ? "Dark" : "Light"}
-            </button>
             <button
               className="chrome-btn settings-btn"
               onClick={() => setShowSettings((open) => !open)}
@@ -1788,6 +1791,41 @@ export default function App() {
                       onClick={() => applyTheme("dark")}
                     >
                       Dark
+                    </button>
+                    <button
+                      className={`theme-chip${theme === "solarized" ? " is-active" : ""}`}
+                      onClick={() => applyTheme("solarized")}
+                    >
+                      Solarized
+                    </button>
+                  </div>
+                </div>
+                <div className="settings-section">
+                  <label className="settings-label">Terminal Theme</label>
+                  <div className="theme-toggle-group">
+                    <button
+                      className={`theme-chip${terminalTheme === "auto" ? " is-active" : ""}`}
+                      onClick={() => setTerminalTheme("auto")}
+                    >
+                      Auto
+                    </button>
+                    <button
+                      className={`theme-chip${terminalTheme === "light" ? " is-active" : ""}`}
+                      onClick={() => setTerminalTheme("light")}
+                    >
+                      Light
+                    </button>
+                    <button
+                      className={`theme-chip${terminalTheme === "dark" ? " is-active" : ""}`}
+                      onClick={() => setTerminalTheme("dark")}
+                    >
+                      Dark
+                    </button>
+                    <button
+                      className={`theme-chip${terminalTheme === "solarized" ? " is-active" : ""}`}
+                      onClick={() => setTerminalTheme("solarized")}
+                    >
+                      Solarized
                     </button>
                   </div>
                 </div>
@@ -2009,7 +2047,7 @@ export default function App() {
                 setFocusedPaneId(paneId);
               }
             }}
-            theme={theme}
+            theme={terminalThemeMode}
             sessionName={session.name}
             paneLabel={getPaneTitle(session)}
             workPath={session.work_path}
