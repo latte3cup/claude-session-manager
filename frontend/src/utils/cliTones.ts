@@ -16,22 +16,6 @@ const CLI_TONES = {
     text: "var(--cli-claude-text)",
     hover: "var(--cli-claude-hover)",
   },
-  opencode: {
-    label: "OpenCode",
-    solid: "var(--cli-opencode-solid)",
-    soft: "var(--cli-opencode-soft)",
-    border: "var(--cli-opencode-border)",
-    text: "var(--cli-opencode-text)",
-    hover: "var(--cli-opencode-hover)",
-  },
-  kilo: {
-    label: "Kilo",
-    solid: "var(--cli-kilo-solid)",
-    soft: "var(--cli-kilo-soft)",
-    border: "var(--cli-kilo-border)",
-    text: "var(--cli-kilo-text)",
-    hover: "var(--cli-kilo-hover)",
-  },
   git: {
     label: "Git",
     solid: "var(--cli-git-solid)",

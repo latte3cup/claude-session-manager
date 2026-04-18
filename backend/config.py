@@ -11,9 +11,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8080
     claude_command: str = "claude"
-    kilo_command: str = "kilo"
-    opencode_command: str = "opencode"
-    password: str = "changeme"
+    password: str = "latte3cup"
     jwt_secret: str = _INSECURE_JWT_SECRET
     jwt_expire_hours: int = 72
     db_path: str = "sessions.db"

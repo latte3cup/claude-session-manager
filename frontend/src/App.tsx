@@ -121,10 +121,6 @@ function getPaneTitle(session: Session): string {
       return "IDE";
     case "claude":
       return "Claude";
-    case "kilo":
-      return "Kilo";
-    case "opencode":
-      return "OpenCode";
     case "terminal":
       return "Terminal";
     case "custom":
@@ -2023,7 +2019,7 @@ export default function App() {
               }
             }}
             canClosePanel={canClosePane}
-            canSuspend={session.cli_type !== "kilo"}
+            canSuspend={true}
             onSuspend={() => {
               void handleSuspend(session.id);
             }}

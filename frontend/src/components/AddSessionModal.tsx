@@ -12,8 +12,8 @@ interface AddSessionModalProps {
   onCancel: () => void;
 }
 
-type CliType = "claude" | "kilo" | "opencode" | "terminal" | "folder" | "git" | "ide" | "custom";
-const OPTION_ENABLED_CLI_TYPES: CliType[] = ["claude", "kilo", "opencode", "terminal"];
+type CliType = "claude" | "terminal" | "folder" | "git" | "ide" | "custom";
+const OPTION_ENABLED_CLI_TYPES: CliType[] = ["claude", "terminal"];
 const CLAUDE_SKIP_PERMISSIONS_OPTION = "--dangerously-skip-permissions";
 
 const CLI_OPTIONS: Array<{
@@ -22,8 +22,6 @@ const CLI_OPTIONS: Array<{
   description: string;
 }> = [
   { type: "claude", label: "Claude Code", description: "Default interactive coding CLI." },
-  { type: "kilo", label: "Kilo Code", description: "Interactive Kilo CLI session." },
-  { type: "opencode", label: "OpenCode", description: "Interactive OpenCode terminal session." },
   { type: "terminal", label: "Terminal", description: "Plain shell session without CLI wrapper." },
   { type: "ide", label: "IDE", description: "Monaco-based editor workspace with file editing tools." },
   { type: "folder", label: "Folder", description: "Saved file explorer session for this project." },

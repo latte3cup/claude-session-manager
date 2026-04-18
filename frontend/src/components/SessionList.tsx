@@ -56,7 +56,7 @@ function isProcessSession(session: Session) {
 }
 
 function canSuspendSession(session: Session) {
-  return (isProcessSession(session) && session.cli_type !== "kilo") || session.cli_type === "ide";
+  return isProcessSession(session) || session.cli_type === "ide";
 }
 
 function isSkipPermissionsSession(session: Session) {

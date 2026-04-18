@@ -54,6 +54,7 @@ export function useWebSocket({
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmountedRef = useRef(false);
   const permanentStatusRef = useRef<ExtendedConnectionStatus | null>(null);
+  const pendingResizeRef = useRef<{ cols: number; rows: number } | null>(null);
   const [status, setStatus] = useState<ExtendedConnectionStatus>("disconnected");
 
   onMessageRef.current = onMessage;
@@ -101,6 +102,12 @@ export function useWebSocket({
         reconnectAttemptRef.current = 0;
         permanentStatusRef.current = null;
         setStatus("connected");
+        // Flush any pending resize that was queued before connection
+        if (pendingResizeRef.current) {
+          const { cols, rows } = pendingResizeRef.current;
+          ws.send(JSON.stringify({ type: "resize", data: { cols, rows } }));
+          pendingResizeRef.current = null;
+        }
       };
 
       ws.onmessage = (event) => {
@@ -206,6 +213,9 @@ export function useWebSocket({
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: "resize", data: { cols, rows } }));
+    } else {
+      // Queue resize for when connection opens
+      pendingResizeRef.current = { cols, rows };
     }
   }, []);
 

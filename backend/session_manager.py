@@ -42,8 +42,8 @@ from .project_layouts import (
 logger = logging.getLogger(__name__)
 
 NON_PTY_CLI_TYPES = {"folder", "git", "ide"}
-SUPPORTED_CLI_TYPES = {"claude", "kilo", "opencode", "terminal", "custom", "folder", "git", "ide"}
-CLI_TYPES_WITH_OPTIONS = {"claude", "kilo", "opencode", "terminal"}
+SUPPORTED_CLI_TYPES = {"claude", "terminal", "custom", "folder", "git", "ide"}
+CLI_TYPES_WITH_OPTIONS = {"claude", "terminal"}
 
 
 class SessionValidationError(ValueError):
@@ -69,10 +69,6 @@ class SessionManager:
 
     def _default_command(self, cli_type: str, custom_command: Optional[str] = None) -> Optional[str]:
         self._validate_cli_type(cli_type)
-        if cli_type == "kilo":
-            return settings.kilo_command
-        if cli_type == "opencode":
-            return settings.opencode_command
         if cli_type == "terminal":
             if os.name == "nt":
                 return "powershell.exe"
@@ -206,8 +202,6 @@ class SessionManager:
         resolved_command = " ".join(parts)
         ready_messages = {
             "claude": "Claude Code CLI is available.",
-            "kilo": "Kilo CLI is available.",
-            "opencode": "OpenCode CLI is available.",
         }
         return {
             "ok": True,
@@ -416,11 +410,6 @@ class SessionManager:
             raise ValueError(f"Session is not active: {session_id}")
 
         cli_type = session.get("cli_type", "claude")
-        if cli_type == "kilo":
-            raise SessionValidationError(
-                "suspend_not_supported",
-                "Kilo sessions cannot be suspended in Remote Code. Create a new Kilo session instead.",
-            )
 
         if cli_type in NON_PTY_CLI_TYPES:
             if cli_type == "ide":
@@ -436,8 +425,6 @@ class SessionManager:
                 exit_cmd = session["custom_exit_command"]
             elif cli_type == "terminal":
                 exit_cmd = "exit"  # 터미널은 exit 명령어 사용
-            elif cli_type == "opencode":
-                exit_cmd = "/exit"
             else:
                 exit_cmd = "/exit"
 
@@ -460,10 +447,7 @@ class SessionManager:
             await asyncio.sleep(0.5)  # WebSocket reader가 마지막 출력을 버퍼에 쓸 시간
             output = instance.get_output_buffer()
 
-            if cli_type == "opencode":
-                # OpenCode: "opencode -s (ses_[A-Za-z0-9]+)" 패턴
-                resume_pattern = re.compile(r"opencode\s+-s\s+(ses_[A-Za-z0-9]+)")
-            elif cli_type == "terminal":
+            if cli_type == "terminal":
                 # Terminal: 세션 ID 추출 안 함
                 resume_pattern = None
             elif cli_type == "custom":
@@ -518,74 +502,7 @@ class SessionManager:
 
         args: list[str] = []
         if session["status"] == "suspended" and session.get("claude_session_id"):
-            if cli_type == "opencode":
-                args = ["-s", session["claude_session_id"]]
-            elif cli_type == "claude":
-                args = ["--resume", session["claude_session_id"]]
-
-        await pty_manager.async_spawn(
-            session_id=session_id,
-            work_path=session["work_path"],
-            command=command,
-            args=command_args + args,
-        )
-
-        await db_update_session(session_id, status="active")
-        await update_last_accessed(session_id)
-
-        logger.info(f"Session resumed: {session_id}")
-        return await db_get_session(session_id)
-
-        # Determine which command to use based on cli_type
-        cli_type = session.get("cli_type", "claude")
-        if cli_type == "kilo":
-            command = settings.kilo_command
-            command_args: list[str] = []
-        elif cli_type == "opencode":
-            command = settings.opencode_command
-            command_args: list[str] = []
-        elif cli_type == "terminal":
-            # OS별 기본 터미널 선택
-            if os.name == "nt":
-                command = "powershell.exe"  # Windows
-            else:
-                command = os.environ.get("SHELL", "/bin/bash")  # Linux/macOS
-            command_args = []
-        elif cli_type == "custom":
-            custom = session.get("custom_command")
-            if not custom:
-                raise SessionValidationError("custom_command_missing", "Custom command is required for Custom CLI.")
-            parts = self._validate_command_available(custom)
-            command = parts[0]
-            command_args = parts[1:]
-        else:
-            parts = self._validate_command_parts(
-                self._command_parts(
-                    cli_type,
-                    custom_command=session.get("custom_command"),
-                    cli_options=session.get("cli_options"),
-                ),
-            )
-            command = parts[0]
-            command_args = parts[1:]
-
-        # suspended + claude_session_id가 있으면 resume으로 대화 이어가기
-        args = []
-        if session["status"] == "suspended" and session.get("claude_session_id"):
-            if cli_type == "opencode":
-                # OpenCode: -s <session_id>
-                args = ["-s", session["claude_session_id"]]
-            elif cli_type == "kilo":
-                # Kilo sessions relaunch fresh rather than resuming prior TUI state.
-                args = []
-            elif cli_type == "terminal":
-                # Terminal: resume args not supported
-                args = []
-            elif cli_type == "custom":
-                # Custom CLI: resume args not supported
-                args = []
-            else:
-                # Claude: --resume <session_id>
+            if cli_type == "claude":
                 args = ["--resume", session["claude_session_id"]]
 
         await pty_manager.async_spawn(

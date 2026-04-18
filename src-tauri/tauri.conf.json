@@ -3,7 +3,7 @@
   "productName": "Remote Code Desktop",
   "identifier": "com.remotecode.desktop",
   "build": {
-    "frontendDist": "../backend/static",
+    "frontendDist": "html",
     "beforeDevCommand": "",
     "beforeBuildCommand": ""
   },
@@ -17,7 +17,8 @@
         "height": 960,
         "visible": false,
         "decorations": true,
-        "transparent": false
+        "transparent": false,
+        "dragDropEnabled": false
       }
     ],
     "security": {
