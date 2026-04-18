@@ -417,11 +417,11 @@ class SessionManager:
             await db_update_session(session_id, status="suspended")
             return await db_get_session(session_id)
 
+        await db_update_session(session_id, status="suspended")
+
         instance = pty_manager.get(session_id)
         if instance and instance.is_alive():
             pty_manager.remove(session_id)
-
-        await db_update_session(session_id, status="suspended")
         return await db_get_session(session_id)
 
     async def resume_session(self, session_id: str) -> dict:
