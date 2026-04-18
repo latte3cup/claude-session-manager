@@ -112,13 +112,28 @@ impl BackendManager {
         let port_str = self.port.to_string();
 
         let mut cmd = if self.is_packaged {
-            let exe = self
-                .get_backend_executable()
-                .ok_or("Packaged backend executable not found")?;
-            info!("Starting packaged backend: {:?}", exe);
-            let mut c = Command::new(&exe);
-            c.args(["--host", "127.0.0.1", "--port", &port_str]);
-            c
+            // Packaged mode: try PyInstaller binary first, fall back to Python + bundled source
+            if let Some(exe) = self.get_backend_executable() {
+                info!("Starting packaged backend (binary): {:?}", exe);
+                let mut c = Command::new(&exe);
+                c.args(["--host", "127.0.0.1", "--port", &port_str]);
+                c
+            } else {
+                // Fall back to system Python + bundled source files
+                let python = self.find_python_executable();
+                let resource_dir = self.resource_dir.as_ref()
+                    .ok_or("Resource directory not found")?;
+                let script = resource_dir.join("remote_code_server.py");
+                if !script.exists() {
+                    return Err(format!("Backend script not found: {:?}", script));
+                }
+                info!("Starting packaged backend (python): {:?} {:?}", python, script);
+                let mut c = Command::new(python);
+                c.arg(&script)
+                    .args(["--host", "127.0.0.1", "--port", &port_str])
+                    .current_dir(resource_dir);
+                c
+            }
         } else {
             let python = self.find_python_executable();
             let script = self.project_root.join("remote_code_server.py");
