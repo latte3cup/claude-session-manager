@@ -90,14 +90,19 @@ impl BackendManager {
     fn get_backend_executable(&self) -> Option<PathBuf> {
         let resource_dir = self.resource_dir.as_ref()?;
         let ext = if cfg!(windows) { ".exe" } else { "" };
-        let exe = resource_dir
-            .join("backend")
-            .join(format!("remote-code-server{}", ext));
-        if exe.exists() {
-            Some(exe)
-        } else {
-            None
+        let name = format!("remote-code-server{}", ext);
+
+        // Tauri bundles preserve the glob prefix from tauri.conf.json:
+        //   "resources/backend/**/*" → {resource_dir}/resources/backend/...
+        // Also try without prefix for dev/non-standard layouts
+        for subdir in &["resources/backend", "backend"] {
+            let exe = resource_dir.join(subdir).join(&name);
+            eprintln!("[tauri] Checking backend exe: {:?} exists={}", exe, exe.exists());
+            if exe.exists() {
+                return Some(exe);
+            }
         }
+        None
     }
 
     pub fn start(&mut self) -> Result<(), String> {
@@ -155,24 +160,50 @@ impl BackendManager {
             format!("tauri-auto-{:x}", hasher.finish())
         });
 
+        let python_path = if self.is_packaged {
+            self.resource_dir.clone().unwrap_or(self.project_root.clone())
+        } else {
+            self.project_root.clone()
+        };
+
         cmd.env("CCR_HOST", "127.0.0.1")
             .env("CCR_PORT", &port_str)
             .env("CCR_JWT_SECRET", &jwt_secret)
-            .env("PYTHONPATH", &self.project_root)
-            .stdin(Stdio::null())
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit());
+            .env("PYTHONPATH", &python_path)
+            .stdin(Stdio::null());
 
-        // Hide console window in packaged mode only
-        #[cfg(windows)]
         if self.is_packaged {
-            use std::os::windows::process::CommandExt;
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
-            cmd.creation_flags(CREATE_NO_WINDOW);
+            // Packaged: pipe stdout/stderr to keep process alive
+            cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+        } else {
+            cmd.stdout(Stdio::inherit()).stderr(Stdio::inherit());
         }
 
-        let child = cmd.spawn().map_err(|e| format!("Failed to spawn backend: {}", e))?;
+        let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn backend: {}", e))?;
         info!("Backend process started with PID: {:?}", child.id());
+
+        // Drain piped stdout/stderr to prevent buffer deadlock and log errors
+        if self.is_packaged {
+            if let Some(stderr) = child.stderr.take() {
+                std::thread::spawn(move || {
+                    use std::io::BufRead;
+                    let reader = std::io::BufReader::new(stderr);
+                    for line in reader.lines().flatten() {
+                        eprintln!("[backend] {}", line);
+                    }
+                });
+            }
+            if let Some(stdout) = child.stdout.take() {
+                std::thread::spawn(move || {
+                    use std::io::BufRead;
+                    let reader = std::io::BufReader::new(stdout);
+                    for line in reader.lines().flatten() {
+                        eprintln!("[backend:out] {}", line);
+                    }
+                });
+            }
+        }
+
         self.process = Some(child);
         Ok(())
     }

@@ -36,10 +36,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "../backend/**/*",
-      "../remote_code_server.py",
-      "../remote_code_bootstrap.py",
-      "../remote_code_launcher.py"
+      "resources/backend/**/*"
     ]
   },
   "plugins": {}

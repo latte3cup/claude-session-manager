@@ -44,7 +44,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Desktop survival check (auto-shutdown if desktop stops pinging)
-DESKTOP_PING_TIMEOUT_SEC = 15.0
+DESKTOP_PING_TIMEOUT_SEC = 20.0
 desktop_last_ping: float = 0.0
 desktop_monitor_task: asyncio.Task | None = None
 

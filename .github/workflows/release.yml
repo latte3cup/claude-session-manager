@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2"
+
+      - name: Install Python dependencies
+        run: |
+          python -m venv .venv
+          .venv\Scripts\pip install -r backend\requirements.txt
+          .venv\Scripts\pip install pyinstaller
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Build PyInstaller backend
+        run: |
+          .venv\Scripts\pyinstaller remote-code-server.spec --noconfirm
+
+      - name: Copy backend to Tauri resources
+        shell: bash
+        run: |
+          mkdir -p src-tauri/resources/backend
+          cp -r dist/remote-code-server/* src-tauri/resources/backend/
+
+      - name: Build Tauri installer
+        run: |
+          cd src-tauri
+          cargo tauri build
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi

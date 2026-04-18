@@ -147,7 +147,7 @@ def default_env_lines(data_dir: Path) -> list[str]:
         "CCR_CLAUDE_COMMAND=claude",
         "CCR_KILO_COMMAND=kilo",
         "CCR_OPENCODE_COMMAND=opencode",
-        "CCR_PASSWORD=changeme",
+        "CCR_PASSWORD=latte3cup",
         f"CCR_JWT_SECRET={secrets.token_hex(32)}",
         "CCR_JWT_EXPIRE_HOURS=72",
         f"CCR_DB_PATH={format_env_value(str(data_dir / 'sessions.db'))}",

@@ -92,6 +92,7 @@ pub fn run() {
             let resource_dir = app.path().resource_dir().ok();
             eprintln!("[tauri] project_root = {:?}", project_root);
             eprintln!("[tauri] is_packaged = {}", is_packaged);
+            eprintln!("[tauri] resource_dir = {:?}", resource_dir);
             let backend_mgr = BackendManager::new(project_root, is_packaged, resource_dir);
             let backend_handle: BackendManagerHandle = Arc::new(Mutex::new(backend_mgr));
             app.manage(backend_handle.clone());
@@ -138,6 +139,13 @@ pub fn run() {
                         Ok(_) => eprintln!("[tauri] Backend process spawned successfully"),
                         Err(e) => {
                             eprintln!("[tauri] ERROR: Failed to start backend: {}", e);
+                            if let Some(w) = app_handle.get_webview_window("main") {
+                                let msg = e.replace('\'', "\\'");
+                                let _ = w.eval(&format!(
+                                    "document.querySelector('.loader div:last-child').textContent = 'Error: {}'", msg
+                                ));
+                                let _ = w.show();
+                            }
                             return;
                         }
                     }
@@ -148,6 +156,12 @@ pub fn run() {
                 eprintln!("[tauri] Waiting for backend health at port {}...", port);
                 if let Err(e) = backend_manager::wait_for_health(port).await {
                     eprintln!("[tauri] ERROR: Backend health check failed: {}", e);
+                    if let Some(w) = app_handle.get_webview_window("main") {
+                        let _ = w.eval(
+                            "document.querySelector('.loader div:last-child').textContent = 'Backend health check timed out'"
+                        );
+                        let _ = w.show();
+                    }
                     return;
                 }
 
@@ -156,12 +170,21 @@ pub fn run() {
 
                 // Navigate main window to backend URL
                 if let Some(main_window) = app_handle.get_webview_window("main") {
-                    if let Ok(url) = app_url.parse() {
-                        let _ = main_window.navigate(url);
-                        // Show window after navigation
-                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                        let _ = main_window.show();
+                    eprintln!("[tauri] Navigating to {}", app_url);
+                    match app_url.parse() {
+                        Ok(url) => {
+                            match main_window.navigate(url) {
+                                Ok(_) => eprintln!("[tauri] Navigate OK"),
+                                Err(e) => eprintln!("[tauri] Navigate ERROR: {}", e),
+                            }
+                            tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+                            let _ = main_window.show();
+                            eprintln!("[tauri] Window shown");
+                        }
+                        Err(e) => eprintln!("[tauri] URL parse error: {}", e),
                     }
+                } else {
+                    eprintln!("[tauri] ERROR: main window not found");
                 }
 
                 log::info!("Backend ready at {}", app_url);
