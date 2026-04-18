@@ -22,7 +22,7 @@ const CLI_OPTIONS: Array<{
   label: string;
   description: string;
 }> = [
-  { type: "claude", label: "Claude Code", description: "Default interactive coding CLI." },
+  { type: "claude", label: "Claude", description: "Default interactive coding CLI." },
   { type: "terminal", label: "Terminal", description: "Plain shell session without CLI wrapper." },
   { type: "ide", label: "IDE", description: "Monaco-based editor workspace with file editing tools." },
   { type: "folder", label: "Folder", description: "Saved file explorer session for this project." },

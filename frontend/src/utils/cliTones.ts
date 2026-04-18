@@ -9,7 +9,7 @@ export interface CliToneMeta {
 
 const CLI_TONES = {
   claude: {
-    label: "Claude Code",
+    label: "Claude",
     solid: "var(--cli-claude-solid)",
     soft: "var(--cli-claude-soft)",
     border: "var(--cli-claude-border)",

@@ -849,28 +849,50 @@ button {
 .session-row__drag-handle {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: 1px solid transparent;
-  border-radius: 7px;
+  justify-content: flex-start;
+  width: 16px;
+  margin-left: -10px;
+  padding: 8px 6px 8px 8px;
+  border: none;
   background: transparent;
-  color: var(--text-muted);
-  font-size: 11px;
-  letter-spacing: -0.18em;
   cursor: grab;
   flex-shrink: 0;
+  align-self: stretch;
 }
 
-.session-row__drag-handle:hover:not(.is-disabled) {
-  border-color: var(--border-subtle);
-  background: var(--surface-2);
-  color: var(--text-primary);
+.session-row__drag-line {
+  display: block;
+  width: 2px;
+  height: 14px;
+  border-radius: 1px;
+  background: var(--border-subtle);
+  transition: background 0.15s;
+}
+
+.session-row__drag-handle:hover:not(.is-disabled) .session-row__drag-line {
+  background: var(--accent);
 }
 
 .session-row__drag-handle.is-disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.session-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.session-status-dot--active {
+  background: var(--success);
+  box-shadow: 0 0 4px var(--success);
+}
+
+.session-status-dot--suspended {
+  background: var(--text-muted);
+  opacity: 0.5;
 }
 
 .session-row__name {

@@ -15,14 +15,13 @@ interface SessionListProps {
   sessionActivity: Record<string, ActivityState>;
   onSelect: (id: string, split?: boolean) => void;
   onOpenLayout: (projectId: string) => void;
-  onOpenProjectInNewWindow?: (project: Project) => void;
   onResume: (id: string) => void;
   onNewProject: () => void;
   onAddSession: (project: Project) => void;
-  onOpenSessionInNewWindow?: (session: Session, project: Project) => void;
   onDeleteSession: (id: string) => Promise<void>;
   onRenameSession: (id: string, newName: string) => Promise<void>;
   onSuspendSession: (id: string) => void;
+  onRestartSession: (id: string) => void;
   onTerminateSession: (id: string) => Promise<void>;
   onDeleteProject: (id: string) => Promise<void>;
   onRenameProject: (id: string, newName: string) => Promise<void>;
@@ -157,14 +156,13 @@ export default function SessionList({
   sessionActivity,
   onSelect,
   onOpenLayout,
-  onOpenProjectInNewWindow,
   onResume,
   onNewProject,
   onAddSession,
-  onOpenSessionInNewWindow,
   onDeleteSession,
   onRenameSession,
   onSuspendSession,
+  onRestartSession,
   onTerminateSession,
   onDeleteProject,
   onRenameProject,
@@ -444,13 +442,6 @@ export default function SessionList({
         closeContextMenu();
       },
     },
-    ...(onOpenProjectInNewWindow ? [{
-      label: "Open Project in New Window",
-      onClick: () => {
-        onOpenProjectInNewWindow(contextMenu.project);
-        closeContextMenu();
-      },
-    }] : []),
     {
       label: "Reveal in File Explorer",
       onClick: () => {
@@ -497,13 +488,6 @@ export default function SessionList({
         closeContextMenu();
       },
     },
-    ...(onOpenSessionInNewWindow ? [{
-      label: "Open Session in New Window",
-      onClick: () => {
-        onOpenSessionInNewWindow(contextMenu.session, contextMenu.project);
-        closeContextMenu();
-      },
-    }] : []),
     {
       label: "Rename Session",
       onClick: () => {
@@ -513,6 +497,14 @@ export default function SessionList({
         closeContextMenu();
       },
     },
+    ...(contextMenu.session.status === "active" && canSuspendSession(contextMenu.session) ? [{
+      label: "Restart",
+      onClick: () => {
+        onRestartSession(contextMenu.session.id);
+        closeContextMenu();
+      },
+      warn: true,
+    }] : []),
     ...(contextMenu.session.status === "active" && canSuspendSession(contextMenu.session) ? [{
       label: "Suspend",
       onClick: () => {
@@ -754,13 +746,21 @@ export default function SessionList({
                               handleDragEnd();
                             }}
                           >
-                            ::
+                            <span className="session-row__drag-line" />
                           </button>
+                          {(session.status === "active" || session.status === "suspended") && (
+                            <span
+                              className={`session-status-dot ${session.status === "active" ? "session-status-dot--active" : "session-status-dot--suspended"}`}
+                              title={statusMeta.label}
+                            />
+                          )}
                           <span className="session-row__name">{session.name}</span>
                           <div className="session-row__meta-group">
-                            <span className={`session-chip session-chip--status ${statusMeta.chipClass}`}>
-                              {statusMeta.label}
-                            </span>
+                            {session.status !== "active" && session.status !== "suspended" && (
+                              <span className={`session-chip session-chip--status ${statusMeta.chipClass}`}>
+                                {statusMeta.label}
+                              </span>
+                            )}
                             <span
                               className="session-chip session-chip--cli"
                               title={cliMeta.label}
@@ -777,7 +777,7 @@ export default function SessionList({
                                 className="session-chip session-chip--skip-perm"
                                 title="Claude session uses --dangerously-skip-permissions"
                               >
-                                SKIP PERM
+                                Bypass
                               </span>
                             )}
                           </div>

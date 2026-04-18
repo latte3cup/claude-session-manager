@@ -1181,6 +1181,23 @@ export default function App() {
     }
   }, [ensureSessionReady]);
 
+  const handleRestart = useCallback(async (sessionId: string) => {
+    try {
+      const response = await apiFetch(`/api/sessions/${sessionId}/suspend`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        const detail = await readErrorDetail(response, "Failed to suspend session.");
+        throw new Error(detail.message);
+      }
+      removeSessionsFromWorkspace([sessionId]);
+      await ensureSessionReady(sessionId);
+      void fetchProjects();
+    } catch (error) {
+      console.error("Failed to restart session:", error);
+    }
+  }, [ensureSessionReady, fetchProjects, removeSessionsFromWorkspace]);
+
   const handleTerminate = useCallback(async (sessionId: string) => {
     try {
       const response = await apiFetch(`/api/sessions/${sessionId}`, {
@@ -1937,16 +1954,15 @@ export default function App() {
                 onOpenLayout={(projectId) => {
                   void handleOpenProjectLayout(projectId);
                 }}
-                onOpenProjectInNewWindow={handleOpenProjectInNewWindow}
                 onResume={(sessionId) => {
                   void handleResume(sessionId).catch(() => {});
                 }}
                 onNewProject={() => setShowNewProject(true)}
                 onAddSession={handleAddSession}
-                onOpenSessionInNewWindow={handleOpenSessionInNewWindow}
                 onDeleteSession={handleDelete}
                 onRenameSession={handleRename}
                 onSuspendSession={handleSuspend}
+                onRestartSession={handleRestart}
                 onTerminateSession={handleTerminate}
                 onDeleteProject={handleDeleteProject}
                 onRenameProject={handleRenameProject}
