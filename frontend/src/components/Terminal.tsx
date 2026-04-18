@@ -108,27 +108,27 @@ function getTerminalPalette(theme: ThemeMode) {
       brightWhite: "#f5f7fb",
     };
   } else if (theme === "solarized") {
-    // Solarized Dark theme
+    // Solarized Dark theme (brightened)
     return {
       background: "#002b36",
-      foreground: "#839496",
-      cursor: "#93a1a1",
-      selectionBackground: "#073642",
-      black: "#073642",
-      red: "#dc322f",
-      green: "#859900",
-      yellow: "#b58900",
-      blue: "#268bd2",
-      magenta: "#d33682",
-      cyan: "#2aa198",
-      white: "#eee8d5",
-      brightBlack: "#586e75",
-      brightRed: "#cb4b16",
-      brightGreen: "#586e75",
-      brightYellow: "#657b83",
-      brightBlue: "#839496",
-      brightMagenta: "#6c71c4",
-      brightCyan: "#93a1a1",
+      foreground: "#b0c4c4",
+      cursor: "#a8b8b8",
+      selectionBackground: "#0a4a5a",
+      black: "#0a4a5a",
+      red: "#ef5350",
+      green: "#9bb200",
+      yellow: "#cca000",
+      blue: "#42a5f5",
+      magenta: "#e94f8a",
+      cyan: "#3cc0b8",
+      white: "#f5efe0",
+      brightBlack: "#728e96",
+      brightRed: "#e06030",
+      brightGreen: "#728e96",
+      brightYellow: "#7e92a0",
+      brightBlue: "#9aabab",
+      brightMagenta: "#8585d0",
+      brightCyan: "#a8b8b8",
       brightWhite: "#fdf6e3",
     };
   } else {
@@ -331,7 +331,8 @@ export default function Terminal({
     const term = new XTerm({
       cursorBlink: true,
       fontSize: fontSizeRef.current,
-      fontFamily: "'Cascadia Code', 'Consolas', monospace",
+      fontFamily: "'Cascadia Code', 'Malgun Gothic', 'Consolas', monospace",
+      fontWeight: "400",
       theme: getTerminalPalette(themeRef.current),
       allowProposedApi: true,
     });
