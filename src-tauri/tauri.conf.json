@@ -37,7 +37,12 @@
     ],
     "resources": [
       "resources/backend/**/*"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installerHooks": "nsis/hooks.nsi"
+      }
+    }
   },
   "plugins": {}
 }

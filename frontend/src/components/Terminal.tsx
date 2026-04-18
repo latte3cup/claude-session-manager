@@ -227,7 +227,13 @@ export default function Terminal({
   const refitAndRefresh = useCallback((restoreFocus = false) => {
     const term = termRef.current;
     const fitAddon = fitAddonRef.current;
+    const container = innerRef.current;
     if (!term || !fitAddon) return;
+
+    // Skip fit when container has no dimensions (hidden/transitioning)
+    if (container && (container.offsetWidth === 0 || container.offsetHeight === 0)) {
+      return;
+    }
 
     try {
       fitAddon.fit();
@@ -556,7 +562,15 @@ export default function Terminal({
       fitAddonRef.current = null;
       term.dispose();
     };
-  }, [cancelScheduledHardRefresh, sendInput, sendMouse, sendResize, sessionId, shouldInitialize]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cancelScheduledHardRefresh, sessionId, shouldInitialize]);
+
+  // Keep refs in sync without triggering terminal re-initialization
+  useEffect(() => {
+    sendInputRef.current = sendInput;
+    sendResizeRef.current = sendResize;
+    sendMouseRef.current = sendMouse;
+  }, [sendInput, sendResize, sendMouse]);
 
   useEffect(() => {
     return () => {
