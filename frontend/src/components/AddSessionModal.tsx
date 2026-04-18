@@ -15,6 +15,7 @@ interface AddSessionModalProps {
 type CliType = "claude" | "terminal" | "folder" | "git" | "ide" | "custom";
 const OPTION_ENABLED_CLI_TYPES: CliType[] = ["claude", "terminal"];
 const CLAUDE_SKIP_PERMISSIONS_OPTION = "--dangerously-skip-permissions";
+const CLAUDE_CONTINUE_OPTION = "--continue";
 
 const CLI_OPTIONS: Array<{
   type: CliType;
@@ -108,6 +109,10 @@ export default function AddSessionModal({
   );
   const skipPermissionsEnabled = useMemo(
     () => cliType === "claude" && hasOptionToken(cliOptions, CLAUDE_SKIP_PERMISSIONS_OPTION),
+    [cliOptions, cliType],
+  );
+  const continueEnabled = useMemo(
+    () => cliType === "claude" && hasOptionToken(cliOptions, CLAUDE_CONTINUE_OPTION),
     [cliOptions, cliType],
   );
 
@@ -452,21 +457,38 @@ export default function AddSessionModal({
                 </div>
 
                 {cliType === "claude" && (
-                  <label className="sheet-checkbox" style={{ fontSize: uiPx(13) }}>
-                    <input
-                      type="checkbox"
-                      checked={skipPermissionsEnabled}
-                      onChange={(e) => {
-                        setCliOptions((current) => (
-                          e.target.checked
-                            ? addOptionToken(current, CLAUDE_SKIP_PERMISSIONS_OPTION)
-                            : removeOptionToken(current, CLAUDE_SKIP_PERMISSIONS_OPTION)
-                        ));
-                      }}
-                      style={{ accentColor: "var(--accent)" }}
-                    />
-                    claude {CLAUDE_SKIP_PERMISSIONS_OPTION} (Skip permissions)
-                  </label>
+                  <>
+                    <label className="sheet-checkbox" style={{ fontSize: uiPx(13) }}>
+                      <input
+                        type="checkbox"
+                        checked={continueEnabled}
+                        onChange={(e) => {
+                          setCliOptions((current) => (
+                            e.target.checked
+                              ? addOptionToken(current, CLAUDE_CONTINUE_OPTION)
+                              : removeOptionToken(current, CLAUDE_CONTINUE_OPTION)
+                          ));
+                        }}
+                        style={{ accentColor: "var(--accent)" }}
+                      />
+                      {CLAUDE_CONTINUE_OPTION} (Continue last conversation)
+                    </label>
+                    <label className="sheet-checkbox" style={{ fontSize: uiPx(13) }}>
+                      <input
+                        type="checkbox"
+                        checked={skipPermissionsEnabled}
+                        onChange={(e) => {
+                          setCliOptions((current) => (
+                            e.target.checked
+                              ? addOptionToken(current, CLAUDE_SKIP_PERMISSIONS_OPTION)
+                              : removeOptionToken(current, CLAUDE_SKIP_PERMISSIONS_OPTION)
+                          ));
+                        }}
+                        style={{ accentColor: "var(--accent)" }}
+                      />
+                      {CLAUDE_SKIP_PERMISSIONS_OPTION} (Skip permissions)
+                    </label>
+                  </>
                 )}
               </>
             )}
