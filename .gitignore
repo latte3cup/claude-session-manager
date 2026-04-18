@@ -1,9 +1,49 @@
-/target
-/.idea/
-/wmux-app.log
-/crates/wmux-app/tauri-dev.log
-/crates/wmux-app/gen/
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
 
-# MCP server
-mcp/node_modules/
-mcp/dist/
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Build output (served by backend)
+backend/static/
+/build/
+/dist/
+/release/
+/desktop-build-resources/
+/desktop-dist/
+
+# IDE
+.vscode/
+.idea/
+
+# Claude Code
+.claude/settings.local.json
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+*~
+
+# Env
+.env
+
+# Tauri
+src-tauri/target/
+src-tauri/icons/android/
+src-tauri/icons/ios/
+
+# Workspace
+.WorkSpace/
+nul
