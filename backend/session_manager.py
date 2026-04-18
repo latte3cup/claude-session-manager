@@ -419,53 +419,6 @@ class SessionManager:
 
         instance = pty_manager.get(session_id)
         if instance and instance.is_alive():
-            # 종료 명령어 결정
-            cli_type = session.get("cli_type", "claude")
-            if cli_type == "custom" and session.get("custom_exit_command"):
-                exit_cmd = session["custom_exit_command"]
-            elif cli_type == "terminal":
-                exit_cmd = "exit"  # 터미널은 exit 명령어 사용
-            else:
-                exit_cmd = "/exit"
-
-            #명령을 한 글자씩 보내고, Enter를 딜레이 후 전송
-            for ch in exit_cmd:
-                instance.write(ch)
-                await asyncio.sleep(0.02)
-            await asyncio.sleep(0.3)
-            instance.write("\r")
-            await asyncio.sleep(0.5)
-            instance.write("\r")
-
-            # 종료 대기 (최대 10초) - pty_to_ws가 출력을 버퍼에 저장함
-            for _ in range(100):
-                if not instance.is_alive():
-                    break
-                await asyncio.sleep(0.1)
-
-            # 버퍼에서 세션 ID 추출 (CLI 타입별로 다른 패턴 사용)
-            await asyncio.sleep(0.5)  # WebSocket reader가 마지막 출력을 버퍼에 쓸 시간
-            output = instance.get_output_buffer()
-
-            if cli_type == "terminal":
-                # Terminal: 세션 ID 추출 안 함
-                resume_pattern = None
-            elif cli_type == "custom":
-                # Custom CLI: 세션 ID 추출 안 함
-                resume_pattern = None
-            else:
-                # Claude Code: "--resume ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})" 패턴
-                resume_pattern = re.compile(r"--resume\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})")
-
-            match = resume_pattern.search(output) if resume_pattern else None
-            if match:
-                cli_sid = match.group(1)
-                await db_update_session(session_id, claude_session_id=cli_sid)
-                logger.info(f"Captured session_id from output: {cli_sid} [cli_type={cli_type}]")
-            else:
-                logger.warning(f"Could not find resume ID in output buffer ({len(output)} chars) [cli_type={cli_type}]")
-
-            # PTY 정리
             pty_manager.remove(session_id)
 
         await db_update_session(session_id, status="suspended")
@@ -501,9 +454,6 @@ class SessionManager:
         command_args = parts[1:]
 
         args: list[str] = []
-        if session["status"] == "suspended" and session.get("claude_session_id"):
-            if cli_type == "claude":
-                args = ["--resume", session["claude_session_id"]]
 
         await pty_manager.async_spawn(
             session_id=session_id,
@@ -551,3 +501,59 @@ class SessionManager:
         logger.info(f"Session deleted: {session_id}")
 
 session_manager = SessionManager()
+
+
+# =============================================================================
+# [Legacy] Resume ID 기반 suspend/resume
+# 현재는 --continue (폴더 기반) 방식으로 대체됨.
+# 추후 --resume 방식이 필요하면 아래 메서드들을 SessionManager에 복원할 것.
+# =============================================================================
+#
+# async def _suspend_with_resume_id(self, session_id: str, session: dict) -> None:
+#     """PTY에 /exit 전송 후 출력에서 resume ID를 추출하여 DB에 저장."""
+#     instance = pty_manager.get(session_id)
+#     if not instance or not instance.is_alive():
+#         return
+#
+#     cli_type = session.get("cli_type", "claude")
+#     if cli_type == "custom" and session.get("custom_exit_command"):
+#         exit_cmd = session["custom_exit_command"]
+#     elif cli_type == "terminal":
+#         exit_cmd = "exit"
+#     else:
+#         exit_cmd = "/exit"
+#
+#     for ch in exit_cmd:
+#         instance.write(ch)
+#         await asyncio.sleep(0.02)
+#     await asyncio.sleep(0.3)
+#     instance.write("\r")
+#     await asyncio.sleep(0.5)
+#     instance.write("\r")
+#
+#     for _ in range(100):
+#         if not instance.is_alive():
+#             break
+#         await asyncio.sleep(0.1)
+#
+#     await asyncio.sleep(0.5)
+#     output = instance.get_output_buffer()
+#     resume_pattern = re.compile(
+#         r"--resume\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"
+#     )
+#     match = resume_pattern.search(output)
+#     if match:
+#         cli_sid = match.group(1)
+#         await db_update_session(session_id, claude_session_id=cli_sid)
+#         logger.info(f"Captured session_id from output: {cli_sid}")
+#
+#     pty_manager.remove(session_id)
+#
+#
+# async def _resume_with_session_id(self, session: dict, command_args: list[str]) -> list[str]:
+#     """DB에 저장된 claude_session_id로 --resume 인자를 생성."""
+#     args = []
+#     if session["status"] == "suspended" and session.get("claude_session_id"):
+#         if session.get("cli_type") == "claude":
+#             args = ["--resume", session["claude_session_id"]]
+#     return args
