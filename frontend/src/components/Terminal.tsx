@@ -455,9 +455,19 @@ export default function Terminal({
     });
     observer.observe(innerRef.current);
 
-    // Mobile touch scroll — immediately block xterm, handle scroll ourselves
     const container = innerRef.current;
     const viewport = container.querySelector(".xterm-viewport") as HTMLElement | null;
+
+    // Middle mouse button click → scroll to bottom
+    const onMiddleClick = (e: MouseEvent) => {
+      if (e.button === 1) {
+        e.preventDefault();
+        term.scrollToBottom();
+      }
+    };
+    container.addEventListener("mousedown", onMiddleClick);
+
+    // Mobile touch scroll — immediately block xterm, handle scroll ourselves
     const xtermScreen = container.querySelector(".xterm-screen") as HTMLElement | null;
     const SCROLLBAR_ZONE = 20; // px from right edge — scrollbar touch zone
     let startX = 0;
@@ -544,6 +554,7 @@ export default function Terminal({
 
     return () => {
       observer.disconnect();
+      container.removeEventListener("mousedown", onMiddleClick);
       container.removeEventListener("touchstart", onTouchStart, { capture: true });
       container.removeEventListener("touchmove", onTouchMove, { capture: true });
       container.removeEventListener("touchend", onTouchEnd, { capture: true });
