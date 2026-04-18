@@ -113,6 +113,15 @@ pub async fn reveal_in_file_explorer(file_path: String) -> bool {
 }
 
 #[tauri::command]
+pub fn toggle_devtools(window: tauri::WebviewWindow) {
+    if window.is_devtools_open() {
+        window.close_devtools();
+    } else {
+        window.open_devtools();
+    }
+}
+
+#[tauri::command]
 pub fn set_badge_count(badge_count: u32) -> u32 {
     // Platform-specific badge (macOS dock badge, Windows overlay)
     // Basic implementation — platform-specific enhancements in later phases

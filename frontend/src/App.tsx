@@ -1925,6 +1925,13 @@ export default function App() {
                     <div className="settings-divider" />
                   </>
                 )}
+                <button className="settings-logout" onClick={() => {
+                  if (isDesktopChromium()) {
+                    import("@tauri-apps/api/core").then(({ invoke }) => invoke("toggle_devtools")).catch(() => {});
+                  }
+                }}>
+                  DevTools
+                </button>
                 <button className="settings-logout" onClick={handleLogout}>
                   Logout
                 </button>

@@ -55,6 +55,7 @@ pub fn run() {
             commands::app::remove_recent_project,
             commands::app::reveal_in_file_explorer,
             commands::app::set_badge_count,
+            commands::app::toggle_devtools,
             commands::updater::get_current_version,
             commands::updater::get_latest_manifest,
         ])
