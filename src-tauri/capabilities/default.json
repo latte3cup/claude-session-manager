@@ -3,6 +3,9 @@
   "identifier": "default",
   "description": "Default capability for Remote Code Desktop",
   "windows": ["*"],
+  "remote": {
+    "urls": ["http://127.0.0.1:*"]
+  },
   "permissions": [
     "core:default",
     "core:window:default",

@@ -362,8 +362,31 @@ button {
   background: var(--border-subtle);
 }
 
+.settings-footer-row {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-footer-row > button {
+  flex: 1;
+}
+
+.settings-btn-default {
+  min-height: 38px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-interactive);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: calc(13px * var(--web-scale));
+  font-weight: 600;
+}
+
+.settings-btn-default:hover {
+  background: var(--bg-interactive-strong);
+}
+
 .settings-logout {
-  width: 100%;
   min-height: 38px;
   border-radius: 12px;
   border: 1px solid rgba(240, 141, 168, 0.24);

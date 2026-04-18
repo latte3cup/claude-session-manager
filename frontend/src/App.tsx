@@ -1862,54 +1862,6 @@ export default function App() {
                     <button className="size-btn" onClick={() => setTerminalFontSize((size) => Math.min(28, size + 1))}>+</button>
                   </div>
                 </div>
-                {isDesktopChromium() && desktopPreferencesState && (
-                  <>
-                    <div className="settings-section">
-                      <label className="settings-label">Desktop</label>
-                      <div className="theme-toggle-group">
-                        <button
-                          className={`theme-chip${desktopPreferencesState.closeBehavior === "tray" ? " is-active" : ""}`}
-                          onClick={() => {
-                            void updateDesktopPreferences({ closeBehavior: "tray" }).then((next) => {
-                              if (next) setDesktopPreferencesState(next);
-                            });
-                          }}
-                        >
-                          Hide to Tray
-                        </button>
-                        <button
-                          className={`theme-chip${desktopPreferencesState.closeBehavior === "quit" ? " is-active" : ""}`}
-                          onClick={() => {
-                            void updateDesktopPreferences({ closeBehavior: "quit" }).then((next) => {
-                              if (next) setDesktopPreferencesState(next);
-                            });
-                          }}
-                        >
-                          Quit App
-                        </button>
-                      </div>
-                      <button
-                        className="settings-action"
-                        onClick={() => {
-                          void updateDesktopPreferences({ launchAtLogin: !desktopPreferencesState.launchAtLogin }).then((next) => {
-                            if (next) setDesktopPreferencesState(next);
-                          });
-                        }}
-                      >
-                        {desktopPreferencesState.launchAtLogin ? "Disable launch at login" : "Enable launch at login"}
-                      </button>
-                    </div>
-                    <div className="settings-section">
-                      <label className="settings-label">Version</label>
-                      <div className="settings-control">
-                        <span className="size-value" style={{ textAlign: "left" }}>
-                          {desktopVersion ?? "Unknown"}
-                          {latestUpdateManifest?.version ? `  |  manifest ${latestUpdateManifest.version}` : ""}
-                        </span>
-                      </div>
-                    </div>
-                  </>
-                )}
                 <div className="settings-divider" />
                 {canOpenConfigPath && (
                   <>
@@ -1925,16 +1877,18 @@ export default function App() {
                     <div className="settings-divider" />
                   </>
                 )}
-                <button className="settings-logout" onClick={() => {
-                  if (isDesktopChromium()) {
-                    import("@tauri-apps/api/core").then(({ invoke }) => invoke("toggle_devtools")).catch(() => {});
-                  }
-                }}>
-                  DevTools
-                </button>
-                <button className="settings-logout" onClick={handleLogout}>
-                  Logout
-                </button>
+                <div className="settings-footer-row">
+                  <button className="settings-btn-default" onClick={() => {
+                    if (isDesktopChromium()) {
+                      import("@tauri-apps/api/core").then(({ invoke }) => invoke("toggle_devtools")).catch(() => {});
+                    }
+                  }}>
+                    DevTools
+                  </button>
+                  <button className="settings-logout" onClick={handleLogout}>
+                    Logout
+                  </button>
+                </div>
               </div>
             )}
           </div>

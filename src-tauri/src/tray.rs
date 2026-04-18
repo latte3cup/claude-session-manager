@@ -31,6 +31,7 @@ pub fn create_tray(app: &AppHandle) -> Result<(), String> {
                     app.webview_windows().into_values().next()
                 }) {
                     let _ = w.show();
+                    let _ = w.unminimize();
                     let _ = w.set_focus();
                 }
             }
@@ -40,12 +41,13 @@ pub fn create_tray(app: &AppHandle) -> Result<(), String> {
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
-            if let tauri::tray::TrayIconEvent::Click { .. } = event {
+            if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
                 let app = tray.app_handle();
                 if let Some(w) = app.get_webview_window("main").or_else(|| {
                     app.webview_windows().into_values().next()
                 }) {
                     let _ = w.show();
+                    let _ = w.unminimize();
                     let _ = w.set_focus();
                 }
             }

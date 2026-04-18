@@ -132,10 +132,17 @@ function detectRuntime(): RuntimeBackend {
   return "browser";
 }
 
-const RUNTIME = detectRuntime();
+let _cachedRuntime: RuntimeBackend | null = null;
+
+function RUNTIME(): RuntimeBackend {
+  if (_cachedRuntime === null || _cachedRuntime === "browser") {
+    _cachedRuntime = detectRuntime();
+  }
+  return _cachedRuntime;
+}
 
 function getElectronApi(): ElectronDesktopApi | null {
-  return RUNTIME === "electron" ? window.remoteCodeDesktop ?? null : null;
+  return RUNTIME() === "electron" ? window.remoteCodeDesktop ?? null : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -217,7 +224,7 @@ function isTerminalProtectedShortcut(event: KeyboardEvent): boolean {
 // ---------------------------------------------------------------------------
 
 export function isDesktopChromium(): boolean {
-  return RUNTIME !== "browser";
+  return RUNTIME() !== "browser";
 }
 
 export function canUseLocalDesktopFeatures(): boolean {
@@ -227,17 +234,17 @@ export function canUseLocalDesktopFeatures(): boolean {
 }
 
 export async function getDesktopRuntimeInfo(): Promise<DesktopRuntimeInfo | null> {
-  if (RUNTIME === "tauri") return tauriInvoke<DesktopRuntimeInfo>("get_runtime_info");
+  if (RUNTIME() === "tauri") return tauriInvoke<DesktopRuntimeInfo>("get_runtime_info");
   return getElectronApi()?.getRuntimeInfo() ?? null;
 }
 
 export async function getLaunchContext(): Promise<DesktopLaunchContext | null> {
-  if (RUNTIME === "tauri") return tauriInvoke<DesktopLaunchContext | null>("get_launch_context");
+  if (RUNTIME() === "tauri") return tauriInvoke<DesktopLaunchContext | null>("get_launch_context");
   return getElectronApi()?.getLaunchContext() ?? null;
 }
 
 export async function openProjectWindow(projectId: string, projectName?: string | null, workPath?: string | null): Promise<DesktopWindowSummary | null> {
-  if (RUNTIME === "tauri") return tauriInvoke<DesktopWindowSummary | null>("open_project_window", { args: { projectId, projectName, workPath } });
+  if (RUNTIME() === "tauri") return tauriInvoke<DesktopWindowSummary | null>("open_project_window", { args: { projectId, projectName, workPath } });
   const api = getElectronApi();
   if (!api) return null;
   return api.openProjectWindow({ projectId, projectName, workPath });
@@ -250,93 +257,93 @@ export async function openSessionWindow(
   projectName?: string | null,
   workPath?: string | null,
 ): Promise<DesktopWindowSummary | null> {
-  if (RUNTIME === "tauri") return tauriInvoke<DesktopWindowSummary | null>("open_session_window", { args: { sessionId, sessionName, projectId, projectName, workPath } });
+  if (RUNTIME() === "tauri") return tauriInvoke<DesktopWindowSummary | null>("open_session_window", { args: { sessionId, sessionName, projectId, projectName, workPath } });
   const api = getElectronApi();
   if (!api) return null;
   return api.openSessionWindow({ sessionId, sessionName, projectId, projectName, workPath });
 }
 
 export async function listOpenWindows(): Promise<DesktopWindowSummary[]> {
-  if (RUNTIME === "tauri") return tauriInvoke<DesktopWindowSummary[]>("list_open_windows");
+  if (RUNTIME() === "tauri") return tauriInvoke<DesktopWindowSummary[]>("list_open_windows");
   return getElectronApi()?.listOpenWindows() ?? [];
 }
 
 export async function focusDesktopWindow(windowId: number): Promise<boolean> {
-  if (RUNTIME === "tauri") return tauriInvoke<boolean>("focus_window", { windowId });
+  if (RUNTIME() === "tauri") return tauriInvoke<boolean>("focus_window", { windowId });
   return getElectronApi()?.focusWindow(windowId) ?? false;
 }
 
 export function syncDesktopPresence(payload: DesktopPresencePayload): void {
-  if (RUNTIME === "tauri") { tauriInvoke("sync_presence", { payload }); return; }
+  if (RUNTIME() === "tauri") { tauriInvoke("sync_presence", { payload }); return; }
   getElectronApi()?.syncPresence(payload);
 }
 
 export async function openFolderDialog(): Promise<string | null> {
-  if (RUNTIME === "tauri") return tauriInvoke<string | null>("open_folder_dialog");
+  if (RUNTIME() === "tauri") return tauriInvoke<string | null>("open_folder_dialog");
   return getElectronApi()?.openFolderDialog() ?? null;
 }
 
 export async function openExternal(url: string): Promise<void> {
-  if (RUNTIME === "tauri") { await tauriInvoke("open_external", { url }); return; }
+  if (RUNTIME() === "tauri") { await tauriInvoke("open_external", { url }); return; }
   const api = getElectronApi();
   if (api) { await api.openExternal(url); return; }
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
 export async function showDesktopNotification(title: string, body: string): Promise<boolean> {
-  if (RUNTIME === "tauri") return tauriInvoke<boolean>("show_notification", { args: { title, body } });
+  if (RUNTIME() === "tauri") return tauriInvoke<boolean>("show_notification", { args: { title, body } });
   return getElectronApi()?.showNotification(title, body) ?? false;
 }
 
 export function setDesktopFocusContext(context: DesktopFocusContext): void {
-  if (RUNTIME === "tauri") { tauriInvoke("set_focus_context", { context }); return; }
+  if (RUNTIME() === "tauri") { tauriInvoke("set_focus_context", { context }); return; }
   getElectronApi()?.setFocusContext(context);
 }
 
 export async function getDesktopPreferences(): Promise<DesktopPreferences | null> {
-  if (RUNTIME === "tauri") return tauriInvoke<DesktopPreferences>("get_desktop_preferences");
+  if (RUNTIME() === "tauri") return tauriInvoke<DesktopPreferences>("get_desktop_preferences");
   return getElectronApi()?.getDesktopPreferences() ?? null;
 }
 
 export async function updateDesktopPreferences(payload: Partial<DesktopPreferences>): Promise<DesktopPreferences | null> {
-  if (RUNTIME === "tauri") return tauriInvoke<DesktopPreferences>("update_desktop_preferences", { payload });
+  if (RUNTIME() === "tauri") return tauriInvoke<DesktopPreferences>("update_desktop_preferences", { payload });
   return getElectronApi()?.updateDesktopPreferences(payload) ?? null;
 }
 
 export async function getRecentProjects(): Promise<RecentProject[]> {
-  if (RUNTIME === "tauri") return tauriInvoke<RecentProject[]>("get_recent_projects");
+  if (RUNTIME() === "tauri") return tauriInvoke<RecentProject[]>("get_recent_projects");
   return getElectronApi()?.getRecentProjects() ?? [];
 }
 
 export async function recordRecentProject(projectId: string, name: string, workPath: string): Promise<RecentProject[]> {
-  if (RUNTIME === "tauri") return tauriInvoke<RecentProject[]>("record_recent_project", { payload: { projectId, name, workPath } });
+  if (RUNTIME() === "tauri") return tauriInvoke<RecentProject[]>("record_recent_project", { payload: { projectId, name, workPath } });
   const api = getElectronApi();
   if (!api) return [];
   return api.recordRecentProject({ projectId, name, workPath });
 }
 
 export async function removeRecentProject(projectId: string): Promise<RecentProject[]> {
-  if (RUNTIME === "tauri") return tauriInvoke<RecentProject[]>("remove_recent_project", { projectId });
+  if (RUNTIME() === "tauri") return tauriInvoke<RecentProject[]>("remove_recent_project", { projectId });
   return getElectronApi()?.removeRecentProject(projectId) ?? [];
 }
 
 export async function setDesktopBadgeCount(badgeCount: number): Promise<number> {
-  if (RUNTIME === "tauri") return tauriInvoke<number>("set_badge_count", { badgeCount });
+  if (RUNTIME() === "tauri") return tauriInvoke<number>("set_badge_count", { badgeCount });
   return getElectronApi()?.setBadgeCount(badgeCount) ?? 0;
 }
 
 export async function getCurrentDesktopVersion(): Promise<string | null> {
-  if (RUNTIME === "tauri") return tauriInvoke<string>("get_current_version");
+  if (RUNTIME() === "tauri") return tauriInvoke<string>("get_current_version");
   return getElectronApi()?.getCurrentVersion() ?? null;
 }
 
 export async function getLatestUpdateManifest(): Promise<UpdateManifest | null> {
-  if (RUNTIME === "tauri") return tauriInvoke<UpdateManifest | null>("get_latest_manifest");
+  if (RUNTIME() === "tauri") return tauriInvoke<UpdateManifest | null>("get_latest_manifest");
   return getElectronApi()?.getLatestManifest() ?? null;
 }
 
 export function subscribeDesktopCommand(listener: (payload: { type: string; projectId?: string }) => void): () => void {
-  if (RUNTIME === "tauri") {
+  if (RUNTIME() === "tauri") {
     let unlisten: (() => void) | null = null;
     tauriListen("app:command", (p) => listener(p as { type: string; projectId?: string }))
       .then((fn) => { unlisten = fn; });
@@ -346,7 +353,7 @@ export function subscribeDesktopCommand(listener: (payload: { type: string; proj
 }
 
 export function subscribeDesktopWindowRegistry(listener: (payload: DesktopWindowSummary[]) => void): () => void {
-  if (RUNTIME === "tauri") {
+  if (RUNTIME() === "tauri") {
     let unlisten: (() => void) | null = null;
     tauriListen("window:registry-updated", (p) => listener(p as DesktopWindowSummary[]))
       .then((fn) => { unlisten = fn; });
