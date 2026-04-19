@@ -4,6 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import { useWebSocket, getWsUrl } from "../hooks/useWebSocket";
+import { openExternal } from "../runtime";
 import MobileKeyBar from "./MobileKeyBar";
 import FileExplorer from "./FileExplorer";
 import GitPanel, { GitIcon } from "./GitPanel";
@@ -343,7 +344,9 @@ export default function Terminal({
 
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
-    term.loadAddon(new WebLinksAddon());
+    term.loadAddon(new WebLinksAddon({
+      handler: (_event, uri) => { void openExternal(uri); },
+    }));
 
     // Enable mouse events - SGR mode (1006)
     term.element?.classList.add("xterm-enable-mouse");
