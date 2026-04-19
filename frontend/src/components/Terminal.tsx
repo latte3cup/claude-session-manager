@@ -344,8 +344,8 @@ export default function Terminal({
 
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
-    term.loadAddon(new WebLinksAddon({
-      handler: (_event, uri) => { void openExternal(uri); },
+    term.loadAddon(new WebLinksAddon((_event: MouseEvent, uri: string) => {
+      void openExternal(uri);
     }));
 
     // Enable mouse events - SGR mode (1006)
