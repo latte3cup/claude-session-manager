@@ -1604,6 +1604,44 @@ def _parse_diff(diff_output: str, file_path: str) -> dict:
     }
 
 
+@app.get("/api/git/repos")
+async def git_list_repos(path: str = "", depth: int = 2, _user: str = Depends(get_current_user)):
+    """List git repositories under the given path (up to `depth` levels deep)."""
+    if not path:
+        raise HTTPException(status_code=400, detail="path is required")
+    root = os.path.abspath(path)
+    if not os.path.isdir(root):
+        raise HTTPException(status_code=400, detail=f"Not a directory: {root}")
+
+    repos: list[dict] = []
+    # Check root itself
+    if os.path.isdir(os.path.join(root, ".git")):
+        repos.append({"path": root, "name": os.path.basename(root) or root})
+
+    # Walk subdirectories up to `depth` levels
+    def scan(current: str, level: int):
+        if level > depth:
+            return
+        try:
+            for entry in os.scandir(current):
+                if not entry.is_dir(follow_symlinks=False):
+                    continue
+                if entry.name.startswith("."):
+                    continue
+                if entry.name in ("node_modules", "__pycache__", "target", "dist", "build", ".venv", "venv"):
+                    continue
+                full = entry.path
+                if os.path.isdir(os.path.join(full, ".git")):
+                    repos.append({"path": full, "name": os.path.relpath(full, root).replace("\\", "/")})
+                else:
+                    scan(full, level + 1)
+        except (PermissionError, OSError):
+            pass
+
+    scan(root, 1)
+    return {"root": root, "repos": repos}
+
+
 @app.get("/api/git/status", response_model=GitStatusResponse)
 async def git_status(path: str = "", _user: str = Depends(get_current_user)):
     if not path:

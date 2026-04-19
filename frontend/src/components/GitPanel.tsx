@@ -143,6 +143,10 @@ export default function GitPanel({
   showHeaderTitle = true,
   showWindowControls = true,
 }: GitPanelProps) {
+  const [gitPath, setGitPath] = useState(workPath);
+  const [repoList, setRepoList] = useState<{ path: string; name: string }[] | null>(null);
+  const [repoDropdown, setRepoDropdown] = useState(false);
+  const repoDropdownRef = useRef<HTMLDivElement>(null);
   const [isGitRepo, setIsGitRepo] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<"status" | "log">("status");
   const [status, setStatus] = useState<GitStatusResponse | null>(null);
@@ -194,11 +198,55 @@ export default function GitPanel({
 
   const headers = useMemo(() => ({}), []);
 
+  // Fetch sub-repos on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await apiFetch(`/api/git/repos?path=${encodeURIComponent(workPath)}`, { headers });
+        if (r.ok) {
+          const data = await r.json();
+          if (data.repos?.length > 0) {
+            setRepoList(data.repos);
+            // If root is not a git repo, auto-select first sub-repo
+            const rootIsRepo = data.repos.some((r: { path: string }) => r.path.replace(/\\/g, "/") === workPath.replace(/\\/g, "/"));
+            if (!rootIsRepo && data.repos.length > 0) {
+              setGitPath(data.repos[0].path);
+            }
+          }
+        }
+      } catch { /* ignore */ }
+    })();
+  }, [workPath, headers]);
+
+  // Reset state when gitPath changes
+  useEffect(() => {
+    setStatus(null);
+    setIsGitRepo(null);
+    setCommits([]);
+    setSelectedFile(null);
+    setDiffContent(null);
+    setSelectedCommit(null);
+    setCommitDetail(null);
+    setBranches(null);
+    setStashes([]);
+    setError(null);
+  }, [gitPath]);
+
+  // Close repo dropdown on outside click
+  useEffect(() => {
+    if (!repoDropdown) return;
+    const h = (e: MouseEvent) => {
+      if (repoDropdownRef.current && !repoDropdownRef.current.contains(e.target as Node)) setRepoDropdown(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [repoDropdown]);
+
   /* ---- API calls ---- */
 
   const fetchStatus = useCallback(async () => {
     try {
-      const r = await apiFetch(`/api/git/status?path=${encodeURIComponent(workPath)}`, { headers });
+      const r = await apiFetch(`/api/git/status?path=${encodeURIComponent(gitPath)}`, { headers });
       if (!r.ok) throw new Error(await r.text());
       const data: GitStatusResponse = await r.json();
       setIsGitRepo(data.is_git_repo);
@@ -206,11 +254,11 @@ export default function GitPanel({
     } catch (e: any) {
       setError(e.message);
     }
-  }, [workPath, headers]);
+  }, [gitPath, headers]);
 
   const fetchLog = useCallback(async (skip = 0) => {
     try {
-      const r = await apiFetch(`/api/git/log?path=${encodeURIComponent(workPath)}&skip=${skip}&count=50`, { headers });
+      const r = await apiFetch(`/api/git/log?path=${encodeURIComponent(gitPath)}&skip=${skip}&count=50`, { headers });
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
       if (skip === 0) {
@@ -222,47 +270,47 @@ export default function GitPanel({
     } catch (e: any) {
       setError(e.message);
     }
-  }, [workPath, headers]);
+  }, [gitPath, headers]);
 
   const fetchBranches = useCallback(async () => {
     try {
-      const r = await apiFetch(`/api/git/branches?path=${encodeURIComponent(workPath)}`, { headers });
+      const r = await apiFetch(`/api/git/branches?path=${encodeURIComponent(gitPath)}`, { headers });
       if (!r.ok) throw new Error(await r.text());
       setBranches(await r.json());
     } catch (e: any) {
       setError(e.message);
     }
-  }, [workPath, headers]);
+  }, [gitPath, headers]);
 
   const fetchDiff = useCallback(async (file: string, staged: boolean) => {
     try {
-      const r = await apiFetch(`/api/git/diff?path=${encodeURIComponent(workPath)}&file=${encodeURIComponent(file)}&staged=${staged}`, { headers });
+      const r = await apiFetch(`/api/git/diff?path=${encodeURIComponent(gitPath)}&file=${encodeURIComponent(file)}&staged=${staged}`, { headers });
       if (!r.ok) throw new Error(await r.text());
       setDiffContent(await r.json());
     } catch (e: any) {
       setError(e.message);
     }
-  }, [workPath, headers]);
+  }, [gitPath, headers]);
 
   const fetchCommitDetail = useCallback(async (hash: string) => {
     try {
-      const r = await apiFetch(`/api/git/commit-detail?path=${encodeURIComponent(workPath)}&hash=${encodeURIComponent(hash)}`, { headers });
+      const r = await apiFetch(`/api/git/commit-detail?path=${encodeURIComponent(gitPath)}&hash=${encodeURIComponent(hash)}`, { headers });
       if (!r.ok) throw new Error(await r.text());
       setCommitDetail(await r.json());
     } catch (e: any) {
       setError(e.message);
     }
-  }, [workPath, headers]);
+  }, [gitPath, headers]);
 
   const fetchCommitDiff = useCallback(async (hash: string, file: string) => {
     try {
-      const r = await apiFetch(`/api/git/commit-diff?path=${encodeURIComponent(workPath)}&hash=${encodeURIComponent(hash)}&file=${encodeURIComponent(file)}`, { headers });
+      const r = await apiFetch(`/api/git/commit-diff?path=${encodeURIComponent(gitPath)}&hash=${encodeURIComponent(hash)}&file=${encodeURIComponent(file)}`, { headers });
       if (!r.ok) throw new Error(await r.text());
       setCommitDiff(await r.json());
     } catch (e: any) {
       setError(e.message);
     }
-  }, [workPath, headers]);
+  }, [gitPath, headers]);
 
   const doStage = useCallback(async (files: string[]) => {
     setLoading(true);
@@ -357,7 +405,7 @@ export default function GitPanel({
       setError(e.message);
     }
     setLoading(false);
-  }, [workPath, headers]);
+  }, [gitPath, headers]);
 
   const doCreateBranch = useCallback(async (name: string) => {
     if (!name.trim()) return;
@@ -377,12 +425,12 @@ export default function GitPanel({
 
   const fetchStashes = useCallback(async () => {
     try {
-      const r = await apiFetch(`/api/git/stash-list?path=${encodeURIComponent(workPath)}`, { headers });
+      const r = await apiFetch(`/api/git/stash-list?path=${encodeURIComponent(gitPath)}`, { headers });
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
       setStashes(data.stashes);
     } catch (e: any) { setError(e.message); }
-  }, [workPath, headers]);
+  }, [gitPath, headers]);
 
   const doStash = useCallback(async (message?: string) => {
     setLoading(true);
@@ -604,6 +652,44 @@ export default function GitPanel({
           </button>
         )}
       </PanelHeader>
+
+      {/* Repo selector — show when sub-repos exist */}
+      {repoList && repoList.length > 0 && (
+        <div ref={repoDropdownRef} style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", fontSize: Math.round(gitFontSize * 0.88), borderBottom: "1px solid var(--border-subtle)", position: "relative", color: "var(--text-secondary)" }}>
+          <span style={{ flexShrink: 0 }}>{"\uD83D\uDCC1"}</span>
+          <button
+            onClick={() => setRepoDropdown((v) => !v)}
+            className="panel-icon-button"
+            style={{ fontSize: Math.round(gitFontSize * 0.88), padding: "1px 4px", color: "var(--text-primary)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}
+          >
+            {gitPath === workPath ? (repoList.find(r => r.path === gitPath)?.name || ".") : repoList.find(r => r.path === gitPath)?.name || gitPath}
+            <span style={{ marginLeft: 4, fontSize: Math.round(gitFontSize * 0.75), color: "var(--text-muted)" }}>{"\u25BC"}</span>
+          </button>
+          {repoDropdown && (
+            <div style={{
+              position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100,
+              background: "var(--surface-2)", border: "1px solid var(--border-subtle)", borderRadius: 4,
+              maxHeight: 200, overflowY: "auto", boxShadow: "var(--shadow-floating)",
+            }}>
+              {repoList.map((repo) => (
+                <div
+                  key={repo.path}
+                  onClick={() => { setGitPath(repo.path); setRepoDropdown(false); }}
+                  className={`panel-list-row${repo.path === gitPath ? " is-selected" : ""}`}
+                  style={{
+                    padding: "4px 8px", fontSize: Math.round(gitFontSize * 0.88), cursor: repo.path === gitPath ? "default" : "pointer",
+                    color: repo.path === gitPath ? "var(--accent)" : "var(--text-primary)",
+                    ["--row-hover-bg" as any]: "var(--surface-3)",
+                    ["--row-selected-bg" as any]: "var(--accent-soft)",
+                  }}
+                >
+                  {repo.path === gitPath ? "* " : ""}{repo.name}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Error bar */}
       {error && (
