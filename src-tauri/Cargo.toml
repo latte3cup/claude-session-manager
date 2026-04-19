@@ -1,6 +1,6 @@
 [package]
 name = "remote-code-desktop"
-version = "0.4.4"
+version = "0.4.5"
 description = "Remote Code Desktop"
 edition = "2021"
 
