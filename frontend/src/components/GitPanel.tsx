@@ -147,6 +147,7 @@ export default function GitPanel({
   const [repoList, setRepoList] = useState<{ path: string; name: string }[] | null>(null);
   const [repoDropdown, setRepoDropdown] = useState(false);
   const repoDropdownRef = useRef<HTMLDivElement>(null);
+  const [repoScanDone, setRepoScanDone] = useState(false);
   const [isGitRepo, setIsGitRepo] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<"status" | "log">("status");
   const [status, setStatus] = useState<GitStatusResponse | null>(null);
@@ -198,7 +199,7 @@ export default function GitPanel({
 
   const headers = useMemo(() => ({}), []);
 
-  // Fetch sub-repos on mount
+  // Fetch sub-repos on mount — must complete before initial data fetch
   useEffect(() => {
     (async () => {
       try {
@@ -207,7 +208,6 @@ export default function GitPanel({
           const data = await r.json();
           if (data.repos?.length > 0) {
             setRepoList(data.repos);
-            // If root is not a git repo, auto-select first sub-repo
             const rootIsRepo = data.repos.some((r: { path: string }) => r.path.replace(/\\/g, "/") === workPath.replace(/\\/g, "/"));
             if (!rootIsRepo && data.repos.length > 0) {
               setGitPath(data.repos[0].path);
@@ -215,6 +215,7 @@ export default function GitPanel({
           }
         }
       } catch { /* ignore */ }
+      setRepoScanDone(true);
     })();
   }, [workPath, headers]);
 
@@ -465,13 +466,14 @@ export default function GitPanel({
     setLoading(false);
   }, [workPath, headers, fetchStashes]);
 
-  /* ---- Initial load ---- */
+  /* ---- Initial load (wait for repo scan) ---- */
 
   useEffect(() => {
+    if (!repoScanDone) return;
     fetchStatus();
     fetchBranches();
     fetchStashes();
-  }, [fetchStatus, fetchBranches, fetchStashes]);
+  }, [repoScanDone, fetchStatus, fetchBranches, fetchStashes]);
 
   useEffect(() => {
     if (isGitRepo && activeTab === "log" && commits.length === 0) {
