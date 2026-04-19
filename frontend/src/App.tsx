@@ -1090,6 +1090,24 @@ export default function App() {
     });
   }, [applyWorkspaceLayout, bumpSessionRefresh, clearOpenAloneSnapshot, ensureSessionReady, focusExternalOwner, isMobileViewport, layoutRoot, workspaceMode]);
 
+  // Alt+1~9: switch to session by index
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!e.altKey || e.ctrlKey || e.shiftKey || e.metaKey) return;
+      const num = parseInt(e.key, 10);
+      if (isNaN(num)) return;
+      // Alt+1~9 = session 1~9, Alt+0 = session 10
+      const idx = num === 0 ? 9 : num - 1;
+      if (idx < sessions.length) {
+        e.preventDefault();
+        e.stopPropagation();
+        openSessionEphemeral(sessions[idx].id);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
+  }, [sessions, openSessionEphemeral]);
+
   const openSessionAlone = useCallback(async (sessionId: string) => {
     if (!layoutRoot || layoutSessionIds.length <= 1 || isMobileViewport) {
       await openSessionEphemeral(sessionId);
