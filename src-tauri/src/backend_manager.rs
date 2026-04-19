@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::Notify;
 
-const DEFAULT_PORT: u16 = 8080;
+const DEFAULT_PORT: u16 = 8888;
 const HEALTH_TIMEOUT: Duration = Duration::from_secs(30);
 const HEALTH_RETRY_INTERVAL: Duration = Duration::from_millis(400);
 const PING_INTERVAL: Duration = Duration::from_secs(5);
@@ -121,7 +121,7 @@ impl BackendManager {
             if let Some(exe) = self.get_backend_executable() {
                 info!("Starting packaged backend (binary): {:?}", exe);
                 let mut c = Command::new(&exe);
-                c.args(["--host", "127.0.0.1", "--port", &port_str]);
+                c.args(["--host", "0.0.0.0", "--port", &port_str]);
                 c
             } else {
                 // Fall back to system Python + bundled source files
@@ -135,7 +135,7 @@ impl BackendManager {
                 info!("Starting packaged backend (python): {:?} {:?}", python, script);
                 let mut c = Command::new(python);
                 c.arg(&script)
-                    .args(["--host", "127.0.0.1", "--port", &port_str])
+                    .args(["--host", "0.0.0.0", "--port", &port_str])
                     .current_dir(resource_dir);
                 c
             }
@@ -145,7 +145,7 @@ impl BackendManager {
             info!("Starting dev backend: {:?} {:?}", python, script);
             let mut c = Command::new(python);
             c.arg(&script)
-                .args(["--host", "127.0.0.1", "--port", &port_str])
+                .args(["--host", "0.0.0.0", "--port", &port_str])
                 .current_dir(&self.project_root);
             c
         };
@@ -166,7 +166,7 @@ impl BackendManager {
             self.project_root.clone()
         };
 
-        cmd.env("CCR_HOST", "127.0.0.1")
+        cmd.env("CCR_HOST", "0.0.0.0")
             .env("CCR_PORT", &port_str)
             .env("CCR_JWT_SECRET", &jwt_secret)
             .env("PYTHONPATH", &python_path)
