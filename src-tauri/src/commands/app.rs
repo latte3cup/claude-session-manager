@@ -86,8 +86,9 @@ pub fn remove_recent_project(
 pub async fn reveal_in_file_explorer(file_path: String) -> bool {
     #[cfg(target_os = "windows")]
     {
+        let normalized = file_path.replace("/", "\\");
         std::process::Command::new("explorer")
-            .args(["/select,", &file_path])
+            .arg(format!("/select,{}", normalized))
             .spawn()
             .is_ok()
     }

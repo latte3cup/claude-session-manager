@@ -290,6 +290,10 @@ export async function openExternal(url: string): Promise<void> {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
+export async function revealInFileExplorer(filePath: string): Promise<void> {
+  if (RUNTIME() === "tauri") { await tauriInvoke("reveal_in_file_explorer", { filePath }); return; }
+}
+
 export async function getClipboardFilePaths(): Promise<string[]> {
   if (RUNTIME() === "tauri") return tauriInvoke<string[]>("get_clipboard_file_paths");
   return [];

@@ -4,7 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import { useWebSocket, getWsUrl } from "../hooks/useWebSocket";
-import { openExternal, getClipboardFilePaths } from "../runtime";
+import { openExternal, getClipboardFilePaths, revealInFileExplorer } from "../runtime";
 import MobileKeyBar from "./MobileKeyBar";
 import FileExplorer from "./FileExplorer";
 import GitPanel, { GitIcon } from "./GitPanel";
@@ -231,6 +231,7 @@ export default function Terminal({
 
     // Skip fit when container has no dimensions (hidden/transitioning)
     if (container && (container.offsetWidth === 0 || container.offsetHeight === 0)) {
+      try { term.scrollToBottom(); } catch { /* ignore */ }
       return;
     }
 
@@ -348,6 +349,38 @@ export default function Terminal({
     term.loadAddon(new WebLinksAddon((_event: MouseEvent, uri: string) => {
       void openExternal(uri);
     }));
+
+    // Local file path link provider (Windows: C:\..., D:/...)
+    const filePathRegex = /[A-Za-z]:[/\\][^\s"'<>|)}\]]+/g;
+    term.registerLinkProvider({
+      provideLinks(lineNumber, callback) {
+        const line = term.buffer.active.getLine(lineNumber - 1);
+        if (!line) { callback(undefined); return; }
+        const text = line.translateToString();
+        const links: import("@xterm/xterm").ILink[] = [];
+        let match;
+        filePathRegex.lastIndex = 0;
+        while ((match = filePathRegex.exec(text)) !== null) {
+          links.push({
+            range: {
+              start: { x: match.index + 1, y: lineNumber },
+              end: { x: match.index + match[0].length + 1, y: lineNumber },
+            },
+            text: match[0],
+            activate: (event, filePath) => {
+              if (event.ctrlKey || event.metaKey) {
+                // Ctrl+Click → open file with default app
+                void openExternal(`file:///${filePath.replace(/\\/g, "/")}`);
+              } else {
+                // Click → reveal in file explorer
+                void revealInFileExplorer(filePath);
+              }
+            },
+          });
+        }
+        callback(links.length > 0 ? links : undefined);
+      },
+    });
 
     // Enable mouse events - SGR mode (1006)
     term.element?.classList.add("xterm-enable-mouse");
