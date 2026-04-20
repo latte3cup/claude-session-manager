@@ -129,6 +129,22 @@ pub fn toggle_devtools(window: tauri::WebviewWindow) {
 }
 
 #[tauri::command]
+pub fn get_clipboard_file_paths() -> Vec<String> {
+    #[cfg(windows)]
+    {
+        use clipboard_win::{formats, get_clipboard};
+        match get_clipboard::<Vec<String>, _>(formats::FileList) {
+            Ok(paths) => paths,
+            Err(_) => Vec::new(),
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        Vec::new()
+    }
+}
+
+#[tauri::command]
 pub fn set_badge_count(badge_count: u32) -> u32 {
     // Platform-specific badge (macOS dock badge, Windows overlay)
     // Basic implementation — platform-specific enhancements in later phases

@@ -40,7 +40,8 @@ async def pty_to_ws_broadcast(session_id: str, instance: PtyInstance) -> None:
                 instance.append_output(data)
                 dead = []
                 conns = _active_connections.get(session_id, [])
-                for i, (ws, _) in enumerate(conns):
+                snapshot = list(conns)
+                for i, (ws, _) in enumerate(snapshot):
                     try:
                         await ws.send_json({"type": "output", "data": data})
                     except Exception:

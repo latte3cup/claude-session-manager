@@ -4,7 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import { useWebSocket, getWsUrl } from "../hooks/useWebSocket";
-import { openExternal } from "../runtime";
+import { openExternal, getClipboardFilePaths } from "../runtime";
 import MobileKeyBar from "./MobileKeyBar";
 import FileExplorer from "./FileExplorer";
 import GitPanel, { GitIcon } from "./GitPanel";
@@ -236,6 +236,7 @@ export default function Terminal({
 
     try {
       fitAddon.fit();
+      term.scrollToBottom();
     } catch {
       // ignore
     }
@@ -726,8 +727,15 @@ export default function Terminal({
       } else if (key === "v") {
         e.preventDefault();
         e.stopPropagation();
-        navigator.clipboard.readText().then((text) => {
-          if (text) sendInputRef.current?.(text);
+        navigator.clipboard.readText().then(async (text) => {
+          if (text) {
+            sendInputRef.current?.(text);
+          } else {
+            const paths = await getClipboardFilePaths();
+            if (paths.length > 0) {
+              sendInputRef.current?.(paths.map(p => `"${p}"`).join(" "));
+            }
+          }
         }).catch(() => {});
       }
     };
@@ -739,8 +747,15 @@ export default function Terminal({
   // Right-click = paste
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    navigator.clipboard.readText().then((text) => {
-      if (text) sendInputRef.current?.(text);
+    navigator.clipboard.readText().then(async (text) => {
+      if (text) {
+        sendInputRef.current?.(text);
+      } else {
+        const paths = await getClipboardFilePaths();
+        if (paths.length > 0) {
+          sendInputRef.current?.(paths.map(p => `"${p}"`).join(" "));
+        }
+      }
     }).catch(() => {});
   }, []);
 

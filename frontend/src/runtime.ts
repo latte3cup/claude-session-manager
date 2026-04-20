@@ -290,6 +290,11 @@ export async function openExternal(url: string): Promise<void> {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
+export async function getClipboardFilePaths(): Promise<string[]> {
+  if (RUNTIME() === "tauri") return tauriInvoke<string[]>("get_clipboard_file_paths");
+  return [];
+}
+
 export async function showDesktopNotification(title: string, body: string): Promise<boolean> {
   if (RUNTIME() === "tauri") return tauriInvoke<boolean>("show_notification", { args: { title, body } });
   return getElectronApi()?.showNotification(title, body) ?? false;
