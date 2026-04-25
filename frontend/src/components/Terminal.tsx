@@ -221,6 +221,8 @@ export default function Terminal({
   const isMobile = isMobileDevice;
   const [scrollThumb, setScrollThumb] = useState<{ top: number; height: number } | null>(null);
   const [scrollbarActive, setScrollbarActive] = useState(false);
+  const savedScrollRef = useRef<{ viewportY: number; wasAtBottom: boolean } | null>(null);
+  const prevVisibleRef = useRef(visible);
 
 
   const refitAndRefresh = useCallback((restoreFocus = false) => {
@@ -229,36 +231,41 @@ export default function Terminal({
     const container = innerRef.current;
     if (!term || !fitAddon) return;
 
-    // Skip fit when container has no dimensions (hidden/transitioning)
     if (container && (container.offsetWidth === 0 || container.offsetHeight === 0)) {
-      try { term.scrollToBottom(); } catch { /* ignore */ }
       return;
     }
 
-    try {
-      fitAddon.fit();
-      term.scrollToBottom();
-    } catch {
-      // ignore
+    try { fitAddon.fit(); } catch { /* ignore */ }
+
+    const saved = savedScrollRef.current;
+    if (saved) {
+      savedScrollRef.current = null;
+      try {
+        if (saved.wasAtBottom) {
+          term.scrollToBottom();
+        } else {
+          term.scrollToLine(saved.viewportY);
+        }
+      } catch { /* ignore */ }
+    } else {
+      try {
+        const buf = term.buffer.active;
+        if (buf.viewportY >= buf.baseY) {
+          term.scrollToBottom();
+        } else {
+          term.scrollToLine(buf.viewportY);
+        }
+      } catch { /* ignore */ }
     }
 
-    try {
-      term.clearTextureAtlas();
-    } catch {
-      // ignore
-    }
-
-    try {
-      term.refresh(0, Math.max(term.rows - 1, 0));
-    } catch {
-      // ignore
-    }
+    try { term.clearTextureAtlas(); } catch { /* ignore */ }
+    try { term.refresh(0, Math.max(term.rows - 1, 0)); } catch { /* ignore */ }
 
     sendResizeRef.current?.(term.cols, term.rows);
-    if (restoreFocus && visible && isFocused) {
+    if (restoreFocus && visibleRef.current && focusedRef.current) {
       term.focus();
     }
-  }, [isFocused, visible]);
+  }, []);
 
   const cancelScheduledHardRefresh = useCallback(() => {
     refreshFramesRef.current.forEach((frame) => cancelAnimationFrame(frame));
@@ -668,21 +675,33 @@ export default function Terminal({
     }
   }, [fontSize, isFocused, scheduleHardRefresh, visible]);
 
+  // Save scroll position when terminal is about to be hidden
+  useEffect(() => {
+    const wasVisible = prevVisibleRef.current;
+    prevVisibleRef.current = visible;
+    if (wasVisible && !visible && termRef.current) {
+      const buf = termRef.current.buffer.active;
+      savedScrollRef.current = {
+        viewportY: buf.viewportY,
+        wasAtBottom: buf.viewportY >= buf.baseY,
+      };
+    }
+  }, [visible]);
+
   // visible / panel toggles -> refit + refresh
   useEffect(() => {
     if (visible && termRef.current && fitAddonRef.current) {
-      // Double-rAF: wait for browser to fully compute layout after DOM change
       let cancelled = false;
       requestAnimationFrame(() => {
         if (cancelled) return;
         requestAnimationFrame(() => {
           if (cancelled) return;
-          refitAndRefresh(isFocused);
+          refitAndRefresh(focusedRef.current);
         });
       });
       return () => { cancelled = true; };
     }
-  }, [explorerOpen, explorerWidth, gitPanelOpen, gitPanelWidth, isFocused, refitAndRefresh, visible]);
+  }, [explorerOpen, explorerWidth, gitPanelOpen, gitPanelWidth, refitAndRefresh, visible]);
 
   useEffect(() => {
     if (!visible || !termRef.current || !fitAddonRef.current) return;

@@ -27,7 +27,14 @@ export default function PersistentTerminal({
     }
 
     if (surfaceRoot.parentElement !== parentElement) {
+      const viewport = surfaceRoot.querySelector('.xterm-viewport') as HTMLElement | null;
+      const savedScrollTop = viewport?.scrollTop ?? 0;
+
       parentElement.appendChild(surfaceRoot);
+
+      if (viewport && savedScrollTop > 0) {
+        viewport.scrollTop = savedScrollTop;
+      }
     }
 
     return () => {
