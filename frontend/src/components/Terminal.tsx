@@ -258,6 +258,20 @@ export default function Terminal({
       } catch { /* ignore */ }
     }
 
+    // Force DOM viewport scrollTop to match xterm internal state
+    const viewport = container?.querySelector(".xterm-viewport") as HTMLElement | null;
+    if (viewport) {
+      const buf = term.buffer.active;
+      if (buf.viewportY >= buf.baseY) {
+        viewport.scrollTop = viewport.scrollHeight - viewport.clientHeight;
+      } else {
+        const totalLines = buf.baseY + term.rows;
+        if (totalLines > 0) {
+          viewport.scrollTop = (buf.viewportY / totalLines) * viewport.scrollHeight;
+        }
+      }
+    }
+
     try { term.clearTextureAtlas(); } catch { /* ignore */ }
     try { term.refresh(0, Math.max(term.rows - 1, 0)); } catch { /* ignore */ }
 
