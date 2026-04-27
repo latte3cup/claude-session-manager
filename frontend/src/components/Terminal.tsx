@@ -189,6 +189,7 @@ export default function Terminal({
   const isProcessingRef = useRef(false);
   const enterTimeRef = useRef(0);
   const mouseDownButtonsRef = useRef(0);
+  const composingRef = useRef(false);
   const sendInputRef = useRef<((data: string) => void) | null>(null);
   const sendResizeRef = useRef<((cols: number, rows: number) => void) | null>(null);
   const sendMouseRef = useRef<((data: MouseEventData) => void) | null>(null);
@@ -430,11 +431,29 @@ export default function Terminal({
       }
     ).__remoteCodeTerminalDebug![sessionId] = { sessionId, sessionName, term };
 
+    // IME composition tracking for mobile/tablet (prevents duplicate input with Korean etc.)
+    const isMobilePlatform = /Android|iPad|iPhone|iPod/i.test(navigator.userAgent);
+    const textarea = innerRef.current.querySelector(".xterm-helper-textarea") as HTMLTextAreaElement | null;
+    let compositionEndTimer: ReturnType<typeof setTimeout> | null = null;
+    const onCompositionStart = () => {
+      if (compositionEndTimer) { clearTimeout(compositionEndTimer); compositionEndTimer = null; }
+      composingRef.current = true;
+    };
+    const onCompositionEnd = () => {
+      compositionEndTimer = setTimeout(() => { composingRef.current = false; }, 30);
+    };
+    if (isMobilePlatform && textarea) {
+      textarea.addEventListener("compositionstart", onCompositionStart);
+      textarea.addEventListener("compositionend", onCompositionEnd);
+    }
+
     term.onData((data) => {
       const sendInput = sendInputRef.current;
       const sendMouse = sendMouseRef.current;
-      
+
       if (!sendInput || !sendMouse) return;
+
+      if (isMobilePlatform && composingRef.current) return;
 
       // Check for mouse escape sequences (SGR 1006 mode)
       if (data.startsWith("\x1b[") && data.includes("M")) {
@@ -615,6 +634,10 @@ export default function Terminal({
       container.removeEventListener("touchmove", onTouchMove, { capture: true });
       container.removeEventListener("touchend", onTouchEnd, { capture: true });
       container.removeEventListener("touchcancel", onTouchEnd, { capture: true });
+      if (textarea) {
+        textarea.removeEventListener("compositionstart", onCompositionStart);
+        textarea.removeEventListener("compositionend", onCompositionEnd);
+      }
       if (activityTimerRef.current) clearTimeout(activityTimerRef.current);
       cancelScheduledHardRefresh();
       const debugStore = (
