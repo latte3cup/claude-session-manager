@@ -183,6 +183,7 @@ export default function Terminal({
   showMobileKeyBar = true,
 }: TerminalProps) {
   const innerRef = useRef<HTMLDivElement>(null);
+  const debugRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const activityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -248,14 +249,15 @@ export default function Terminal({
     if (wasAtBottom) {
       try { term.scrollToBottom(); } catch { /* ignore */ }
     } else {
-      const vp = container?.querySelector(".xterm-viewport") as HTMLElement | null;
-      if (vp) {
-        const buf = term.buffer.active;
-        const total = buf.baseY + term.rows;
-        if (total > 0) {
-          vp.scrollTop = (buf.viewportY / total) * vp.scrollHeight;
-        }
-      }
+      // DOM scrollTop을 직접 설정하지 않는다. xterm은 비동기 queueSync(animation frame)로
+      // DOM scrollTop을 자기 상태 기준으로 다시 덮어쓰므로, 직접 설정이 WebView2에서 무효화된다.
+      // 대신 xterm API(scrollToLine)로 스크롤해 xterm 자신이 스크롤바를 동기화하게 한다.
+      // 같은 라인으로의 scrollToLine은 no-op이라, 다른 라인을 한 번 거쳐 sync를 강제한다.
+      try {
+        const y = term.buffer.active.viewportY;
+        term.scrollToLine(y === 0 ? 1 : 0);
+        term.scrollToLine(y);
+      } catch { /* ignore */ }
     }
 
     try { term.clearTextureAtlas(); } catch { /* ignore */ }
@@ -264,6 +266,15 @@ export default function Terminal({
     sendResizeRef.current?.(term.cols, term.rows);
     if (restoreFocus && visibleRef.current && focusedRef.current) {
       term.focus();
+    }
+
+    // [디버그] WebView2에서 실제 스크롤 상태를 화면으로 확인하기 위한 오버레이 갱신
+    const dbg = debugRef.current;
+    if (dbg) {
+      const b = term.buffer.active;
+      const vpEl = container?.querySelector(".xterm-viewport") as HTMLElement | null;
+      const ph = (container?.closest(".terminal-panel") as HTMLElement | null)?.clientHeight;
+      dbg.textContent = `vY=${b.viewportY} bY=${b.baseY} sT=${vpEl ? Math.round(vpEl.scrollTop) : "-"} sH=${vpEl ? vpEl.scrollHeight : "-"} ph=${ph ?? "-"}`;
     }
   }, []);
 
@@ -945,6 +956,24 @@ export default function Terminal({
       }}
       onMouseDown={onFocus}
     >
+      {/* [디버그] WebView2 스크롤 상태 표시 — 진단 후 제거 예정 */}
+      <div
+        ref={debugRef}
+        style={{
+          position: "absolute",
+          bottom: 2,
+          right: 2,
+          background: "rgba(220,0,0,0.85)",
+          color: "#fff",
+          fontSize: "9px",
+          lineHeight: "12px",
+          zIndex: 99999,
+          padding: "1px 5px",
+          pointerEvents: "none",
+          fontFamily: "monospace",
+          borderRadius: 3,
+        }}
+      />
       <div
         className={`terminal-toolbar${isFocused ? " is-focused" : ""}`}
         style={{
