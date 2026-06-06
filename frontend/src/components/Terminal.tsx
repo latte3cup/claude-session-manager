@@ -240,11 +240,22 @@ export default function Terminal({
 
     try { fitAddon.fit(); } catch { /* ignore */ }
 
-    // 맨 아래에 있었으면 새 출력을 계속 따라가도록 맨 아래로 유지.
-    // 그 외에는 xterm이 스크롤백 위치(viewportY)를 스스로 보존하므로 절대 건드리지 않는다.
-    // (저장값 기반 복원은 숨긴 동안 출력이 들어와 baseY가 변하면 오히려 엉뚱한 위치로 점프시킴)
+    // 맨 아래에 있었으면 새 출력을 계속 따라가도록 맨 아래로 유지(scrollToBottom이 DOM도 동기화).
+    // 그 외에는 xterm이 스크롤백 위치(viewportY)를 스스로 보존하므로 viewportY는 건드리지 않되,
+    // display:none→flex 복귀 시 브라우저가 0으로 리셋한 DOM scrollTop을 viewportY에 맞춰 재동기화한다.
+    // (이 동기화가 없으면 화면은 올바른데 스크롤바만 최상단에 머물러 휠 스크롤이 맨 위 기준으로 오작동.
+    //  Chrome은 자동 보정하지만 WebView2는 안 하므로 데스크톱 앱에서만 증상이 보였음.)
     if (wasAtBottom) {
       try { term.scrollToBottom(); } catch { /* ignore */ }
+    } else {
+      const vp = container?.querySelector(".xterm-viewport") as HTMLElement | null;
+      if (vp) {
+        const buf = term.buffer.active;
+        const total = buf.baseY + term.rows;
+        if (total > 0) {
+          vp.scrollTop = (buf.viewportY / total) * vp.scrollHeight;
+        }
+      }
     }
 
     try { term.clearTextureAtlas(); } catch { /* ignore */ }

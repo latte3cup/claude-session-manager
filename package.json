@@ -1,7 +1,7 @@
 {
   "name": "remote-code-e2e",
   "private": true,
-  "version": "0.4.9",
+  "version": "0.4.10",
   "main": "desktop/main.cjs",
   "scripts": {
     "test:e2e": "playwright test",
