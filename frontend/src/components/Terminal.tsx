@@ -183,7 +183,6 @@ export default function Terminal({
   showMobileKeyBar = true,
 }: TerminalProps) {
   const innerRef = useRef<HTMLDivElement>(null);
-  const debugRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const activityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -268,14 +267,6 @@ export default function Terminal({
       term.focus();
     }
 
-    // [디버그] WebView2에서 실제 스크롤 상태를 화면으로 확인하기 위한 오버레이 갱신
-    const dbg = debugRef.current;
-    if (dbg) {
-      const b = term.buffer.active;
-      const vpEl = container?.querySelector(".xterm-viewport") as HTMLElement | null;
-      const ph = (container?.closest(".terminal-panel") as HTMLElement | null)?.clientHeight;
-      dbg.textContent = `vY=${b.viewportY} bY=${b.baseY} sT=${vpEl ? Math.round(vpEl.scrollTop) : "-"} sH=${vpEl ? vpEl.scrollHeight : "-"} ph=${ph ?? "-"}`;
-    }
   }, []);
 
   const cancelScheduledHardRefresh = useCallback(() => {
@@ -956,24 +947,6 @@ export default function Terminal({
       }}
       onMouseDown={onFocus}
     >
-      {/* [디버그] WebView2 스크롤 상태 표시 — 진단 후 제거 예정 */}
-      <div
-        ref={debugRef}
-        style={{
-          position: "absolute",
-          bottom: 2,
-          right: 2,
-          background: "rgba(220,0,0,0.85)",
-          color: "#fff",
-          fontSize: "9px",
-          lineHeight: "12px",
-          zIndex: 99999,
-          padding: "1px 5px",
-          pointerEvents: "none",
-          fontFamily: "monospace",
-          borderRadius: 3,
-        }}
-      />
       <div
         className={`terminal-toolbar${isFocused ? " is-focused" : ""}`}
         style={{
