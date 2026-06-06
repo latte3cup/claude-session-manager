@@ -937,7 +937,9 @@ export default function Terminal({
       className="terminal-panel"
       data-testid="terminal-panel"
       style={{
-        display: visible ? "flex" : "none",
+        // display:none을 쓰지 않는다. 숨김은 keepAliveRoot(off-screen + visibility:hidden)가 처리.
+        // display:none이면 브라우저가 DOM scrollTop을 0으로 리셋해 복귀 시 스크롤바가 최상단으로 튐.
+        display: "flex",
         flexDirection: "column",
         height: "100%",
       }}

@@ -2508,8 +2508,10 @@ body {
   position: fixed;
   top: 0;
   left: -200vw;
-  width: 1px;
-  height: 1px;
+  /* 숨겨진 터미널이 1px로 쪼그라들어 DOM scrollTop이 0으로 깨지지 않도록 충분한 크기를 준다.
+     left:-200vw로 화면 밖이고 visibility:hidden이라 시각적 영향은 없다. */
+  width: 100vw;
+  height: 100vh;
   overflow: hidden;
   visibility: hidden;
   pointer-events: none;
