@@ -9,6 +9,7 @@ import MobileKeyBar from "./MobileKeyBar";
 import FileExplorer from "./FileExplorer";
 import GitPanel, { GitIcon } from "./GitPanel";
 import { getCliTone } from "../utils/cliTones";
+import { saveTerminalScroll, getTerminalScroll } from "../utils/terminalScrollStore";
 
 type MouseEventType = "press" | "release" | "move" | "drag" | "scroll";
 type MouseButton = 0 | 1 | 2 | 64 | 65;
@@ -222,7 +223,6 @@ export default function Terminal({
   const isMobile = isMobileDevice;
   const [scrollThumb, setScrollThumb] = useState<{ top: number; height: number } | null>(null);
   const [scrollbarActive, setScrollbarActive] = useState(false);
-  const savedScrollRef = useRef<{ viewportY: number; wasAtBottom: boolean } | null>(null);
   const prevVisibleRef = useRef(visible);
 
 
@@ -236,42 +236,24 @@ export default function Terminal({
       return;
     }
 
+    // fit(reflow) 전 현재 스크롤 위치를 bottom-relative로 기억
+    const beforeBuf = term.buffer.active;
+    const wasAtBottom = beforeBuf.viewportY >= beforeBuf.baseY;
+    const prevFromBottom = beforeBuf.baseY - beforeBuf.viewportY;
+
     try { fitAddon.fit(); } catch { /* ignore */ }
 
-    const saved = savedScrollRef.current;
-    if (saved) {
-      savedScrollRef.current = null;
-      try {
-        if (saved.wasAtBottom) {
-          term.scrollToBottom();
-        } else {
-          term.scrollToLine(saved.viewportY);
-        }
-      } catch { /* ignore */ }
-    } else {
-      try {
-        const buf = term.buffer.active;
-        if (buf.viewportY >= buf.baseY) {
-          term.scrollToBottom();
-        } else {
-          term.scrollToLine(buf.viewportY);
-        }
-      } catch { /* ignore */ }
-    }
-
-    // Force DOM viewport scrollTop to match xterm internal state
-    const viewport = container?.querySelector(".xterm-viewport") as HTMLElement | null;
-    if (viewport) {
-      const buf = term.buffer.active;
-      if (buf.viewportY >= buf.baseY) {
-        viewport.scrollTop = viewport.scrollHeight - viewport.clientHeight;
+    // fit으로 reflow가 일어나도 같은 화면 위치를 유지.
+    // scrollToLine/scrollToBottom이 내부적으로 DOM viewport.scrollTop을 동기화하므로
+    // 수동 scrollTop 계산은 하지 않는다(xterm 내부 상태와의 어긋남 방지).
+    try {
+      const afterBuf = term.buffer.active;
+      if (wasAtBottom) {
+        term.scrollToBottom();
       } else {
-        const totalLines = buf.baseY + term.rows;
-        if (totalLines > 0) {
-          viewport.scrollTop = (buf.viewportY / totalLines) * viewport.scrollHeight;
-        }
+        term.scrollToLine(Math.max(0, afterBuf.baseY - prevFromBottom));
       }
-    }
+    } catch { /* ignore */ }
 
     try { term.clearTextureAtlas(); } catch { /* ignore */ }
     try { term.refresh(0, Math.max(term.rows - 1, 0)); } catch { /* ignore */ }
@@ -648,6 +630,14 @@ export default function Terminal({
       if (debugStore) {
         delete debugStore[sessionId];
       }
+      // 언마운트(dispose) 시에도 스크롤 위치 저장 → 리마운트 전환 복원용
+      try {
+        const buf = term.buffer.active;
+        saveTerminalScroll(sessionId, {
+          fromBottom: buf.baseY - buf.viewportY,
+          wasAtBottom: buf.viewportY >= buf.baseY,
+        });
+      } catch { /* ignore */ }
       termRef.current = null;
       fitAddonRef.current = null;
       term.dispose();
@@ -712,18 +702,43 @@ export default function Terminal({
     }
   }, [fontSize, isFocused, scheduleHardRefresh, visible]);
 
-  // Save scroll position when terminal is about to be hidden
+  // visibility 전환 시 스크롤 저장(숨김)/복원(표시).
+  // 복원은 오직 이 한 곳에서만 수행하여 isFocused/theme effect와의 경쟁을 제거한다.
   useEffect(() => {
     const wasVisible = prevVisibleRef.current;
     prevVisibleRef.current = visible;
-    if (wasVisible && !visible && termRef.current) {
-      const buf = termRef.current.buffer.active;
-      savedScrollRef.current = {
-        viewportY: buf.viewportY,
+    const term = termRef.current;
+    if (!term) return;
+
+    if (wasVisible && !visible) {
+      // 숨겨지기 직전: 현재 위치를 bottom-relative로 저장
+      const buf = term.buffer.active;
+      saveTerminalScroll(sessionId, {
+        fromBottom: buf.baseY - buf.viewportY,
         wasAtBottom: buf.viewportY >= buf.baseY,
+      });
+    } else if (!wasVisible && visible) {
+      // 다시 보이게 될 때: 저장된 위치 복원.
+      // refitAndRefresh(아래 effect)가 rAF 2회 후 fit()하므로, 그 다음 프레임에 복원한다.
+      const saved = getTerminalScroll(sessionId);
+      if (!saved || !fitAddonRef.current) return;
+      let cancelled = false;
+      const run = () => {
+        const t = termRef.current;
+        if (cancelled || !t) return;
+        const buf = t.buffer.active;
+        try {
+          if (saved.wasAtBottom) {
+            t.scrollToBottom();
+          } else {
+            t.scrollToLine(Math.max(0, buf.baseY - saved.fromBottom));
+          }
+        } catch { /* ignore */ }
       };
+      requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(run)));
+      return () => { cancelled = true; };
     }
-  }, [visible]);
+  }, [visible, sessionId]);
 
   // visible / panel toggles -> refit + refresh
   useEffect(() => {

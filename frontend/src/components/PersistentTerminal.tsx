@@ -27,14 +27,9 @@ export default function PersistentTerminal({
     }
 
     if (surfaceRoot.parentElement !== parentElement) {
-      const viewport = surfaceRoot.querySelector('.xterm-viewport') as HTMLElement | null;
-      const savedScrollTop = viewport?.scrollTop ?? 0;
-
+      // DOM 이동만 수행. 스크롤 복원은 Terminal의 xterm API 경로로 일원화한다
+      // (DOM scrollTop 직접 조작은 xterm 내부 상태와 어긋나 점프를 유발).
       parentElement.appendChild(surfaceRoot);
-
-      if (viewport && savedScrollTop > 0) {
-        viewport.scrollTop = savedScrollTop;
-      }
     }
 
     return () => {
