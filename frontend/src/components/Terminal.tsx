@@ -9,7 +9,6 @@ import MobileKeyBar from "./MobileKeyBar";
 import FileExplorer from "./FileExplorer";
 import GitPanel, { GitIcon } from "./GitPanel";
 import { getCliTone } from "../utils/cliTones";
-import { saveTerminalScroll, getTerminalScroll } from "../utils/terminalScrollStore";
 
 type MouseEventType = "press" | "release" | "move" | "drag" | "scroll";
 type MouseButton = 0 | 1 | 2 | 64 | 65;
@@ -223,7 +222,6 @@ export default function Terminal({
   const isMobile = isMobileDevice;
   const [scrollThumb, setScrollThumb] = useState<{ top: number; height: number } | null>(null);
   const [scrollbarActive, setScrollbarActive] = useState(false);
-  const prevVisibleRef = useRef(visible);
 
 
   const refitAndRefresh = useCallback((restoreFocus = false) => {
@@ -236,24 +234,18 @@ export default function Terminal({
       return;
     }
 
-    // fit(reflow) 전 현재 스크롤 위치를 bottom-relative로 기억
+    // fit 전에 "맨 아래에 붙어있었는지"만 확인
     const beforeBuf = term.buffer.active;
     const wasAtBottom = beforeBuf.viewportY >= beforeBuf.baseY;
-    const prevFromBottom = beforeBuf.baseY - beforeBuf.viewportY;
 
     try { fitAddon.fit(); } catch { /* ignore */ }
 
-    // fit으로 reflow가 일어나도 같은 화면 위치를 유지.
-    // scrollToLine/scrollToBottom이 내부적으로 DOM viewport.scrollTop을 동기화하므로
-    // 수동 scrollTop 계산은 하지 않는다(xterm 내부 상태와의 어긋남 방지).
-    try {
-      const afterBuf = term.buffer.active;
-      if (wasAtBottom) {
-        term.scrollToBottom();
-      } else {
-        term.scrollToLine(Math.max(0, afterBuf.baseY - prevFromBottom));
-      }
-    } catch { /* ignore */ }
+    // 맨 아래에 있었으면 새 출력을 계속 따라가도록 맨 아래로 유지.
+    // 그 외에는 xterm이 스크롤백 위치(viewportY)를 스스로 보존하므로 절대 건드리지 않는다.
+    // (저장값 기반 복원은 숨긴 동안 출력이 들어와 baseY가 변하면 오히려 엉뚱한 위치로 점프시킴)
+    if (wasAtBottom) {
+      try { term.scrollToBottom(); } catch { /* ignore */ }
+    }
 
     try { term.clearTextureAtlas(); } catch { /* ignore */ }
     try { term.refresh(0, Math.max(term.rows - 1, 0)); } catch { /* ignore */ }
@@ -630,14 +622,6 @@ export default function Terminal({
       if (debugStore) {
         delete debugStore[sessionId];
       }
-      // 언마운트(dispose) 시에도 스크롤 위치 저장 → 리마운트 전환 복원용
-      try {
-        const buf = term.buffer.active;
-        saveTerminalScroll(sessionId, {
-          fromBottom: buf.baseY - buf.viewportY,
-          wasAtBottom: buf.viewportY >= buf.baseY,
-        });
-      } catch { /* ignore */ }
       termRef.current = null;
       fitAddonRef.current = null;
       term.dispose();
@@ -701,44 +685,6 @@ export default function Terminal({
       scheduleHardRefresh(isFocused);
     }
   }, [fontSize, isFocused, scheduleHardRefresh, visible]);
-
-  // visibility 전환 시 스크롤 저장(숨김)/복원(표시).
-  // 복원은 오직 이 한 곳에서만 수행하여 isFocused/theme effect와의 경쟁을 제거한다.
-  useEffect(() => {
-    const wasVisible = prevVisibleRef.current;
-    prevVisibleRef.current = visible;
-    const term = termRef.current;
-    if (!term) return;
-
-    if (wasVisible && !visible) {
-      // 숨겨지기 직전: 현재 위치를 bottom-relative로 저장
-      const buf = term.buffer.active;
-      saveTerminalScroll(sessionId, {
-        fromBottom: buf.baseY - buf.viewportY,
-        wasAtBottom: buf.viewportY >= buf.baseY,
-      });
-    } else if (!wasVisible && visible) {
-      // 다시 보이게 될 때: 저장된 위치 복원.
-      // refitAndRefresh(아래 effect)가 rAF 2회 후 fit()하므로, 그 다음 프레임에 복원한다.
-      const saved = getTerminalScroll(sessionId);
-      if (!saved || !fitAddonRef.current) return;
-      let cancelled = false;
-      const run = () => {
-        const t = termRef.current;
-        if (cancelled || !t) return;
-        const buf = t.buffer.active;
-        try {
-          if (saved.wasAtBottom) {
-            t.scrollToBottom();
-          } else {
-            t.scrollToLine(Math.max(0, buf.baseY - saved.fromBottom));
-          }
-        } catch { /* ignore */ }
-      };
-      requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(run)));
-      return () => { cancelled = true; };
-    }
-  }, [visible, sessionId]);
 
   // visible / panel toggles -> refit + refresh
   useEffect(() => {
