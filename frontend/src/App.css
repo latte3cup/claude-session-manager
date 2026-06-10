@@ -2505,13 +2505,13 @@ body {
 }
 
 .terminal-keepalive-root {
-  position: fixed;
-  top: 0;
-  left: -200vw;
-  /* 숨겨진 터미널이 1px로 쪼그라들어 DOM scrollTop이 0으로 깨지지 않도록 충분한 크기를 준다.
-     left:-200vw로 화면 밖이고 visibility:hidden이라 시각적 영향은 없다. */
-  width: 100vw;
-  height: 100vh;
+  /* .terminal-area(메인 영역)의 자식. inset:0으로 표시 영역과 정확히 같은 크기를 차지하되
+     transform으로 화면 밖에 두어 숨긴다. 크기를 표시 영역과 일치시켜야 숨김 세션의 xterm cols가
+     변하지 않아 세션 전환 시 reflow(한 줄→줄바꿈 깜빡임)가 발생하지 않는다.
+     (1px이면 scrollTop이 0으로 깨지고, 100vw면 cols가 넓어져 reflow가 생기던 문제를 동시에 해결) */
+  position: absolute;
+  inset: 0;
+  transform: translateX(-200vw);
   overflow: hidden;
   visibility: hidden;
   pointer-events: none;

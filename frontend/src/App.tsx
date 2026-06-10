@@ -2007,14 +2007,15 @@ export default function App() {
               renderLeaf={renderLeaf}
             />
           )}
+          {/* keepAlive root: 메인 영역(.terminal-area) 내부에 두어 표시 영역과 같은 크기를 갖게 한다.
+              숨김 세션의 xterm cols가 표시 시와 동일해야 전환 때 reflow(한 줄→줄바꿈 깜빡임)가 없다. */}
+          <div
+            ref={setTerminalKeepAliveRoot}
+            className="terminal-keepalive-root"
+            aria-hidden="true"
+          />
         </main>
       </div>
-
-      <div
-        ref={setTerminalKeepAliveRoot}
-        className="terminal-keepalive-root"
-        aria-hidden="true"
-      />
       {persistentTerminalSessions.map((session) => {
         const host = terminalHostElements[session.id];
         const paneId = host?.paneId ?? null;

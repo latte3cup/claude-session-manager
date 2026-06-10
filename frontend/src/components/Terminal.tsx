@@ -234,35 +234,51 @@ export default function Terminal({
       return;
     }
 
-    // fit 전에 "맨 아래에 붙어있었는지"만 확인
+    // fit 전에 "맨 아래에 붙어있었는지"와 현재 크기를 기록
     const beforeBuf = term.buffer.active;
     const wasAtBottom = beforeBuf.viewportY >= beforeBuf.baseY;
+    const prevCols = term.cols;
+    const prevRows = term.rows;
 
     try { fitAddon.fit(); } catch { /* ignore */ }
 
-    // 맨 아래에 있었으면 새 출력을 계속 따라가도록 맨 아래로 유지(scrollToBottom이 DOM도 동기화).
-    // 그 외에는 xterm이 스크롤백 위치(viewportY)를 스스로 보존하므로 viewportY는 건드리지 않되,
-    // display:none→flex 복귀 시 브라우저가 0으로 리셋한 DOM scrollTop을 viewportY에 맞춰 재동기화한다.
-    // (이 동기화가 없으면 화면은 올바른데 스크롤바만 최상단에 머물러 휠 스크롤이 맨 위 기준으로 오작동.
-    //  Chrome은 자동 보정하지만 WebView2는 안 하므로 데스크톱 앱에서만 증상이 보였음.)
+    const dimsChanged = term.cols !== prevCols || term.rows !== prevRows;
+
+    // 맨 아래에 있었으면 새 출력을 계속 따라가도록 내부 상태를 맨 아래로 유지.
     if (wasAtBottom) {
       try { term.scrollToBottom(); } catch { /* ignore */ }
-    } else {
-      // DOM scrollTop을 직접 설정하지 않는다. xterm은 비동기 queueSync(animation frame)로
-      // DOM scrollTop을 자기 상태 기준으로 다시 덮어쓰므로, 직접 설정이 WebView2에서 무효화된다.
-      // 대신 xterm API(scrollToLine)로 스크롤해 xterm 자신이 스크롤바를 동기화하게 한다.
-      // 같은 라인으로의 scrollToLine은 no-op이라, 다른 라인을 한 번 거쳐 sync를 강제한다.
-      try {
-        const y = term.buffer.active.viewportY;
-        term.scrollToLine(y === 0 ? 1 : 0);
-        term.scrollToLine(y);
-      } catch { /* ignore */ }
     }
 
-    try { term.clearTextureAtlas(); } catch { /* ignore */ }
-    try { term.refresh(0, Math.max(term.rows - 1, 0)); } catch { /* ignore */ }
+    // DOM 이동(keepAlive↔host appendChild)은 .xterm-viewport의 scrollTop을 0으로 리셋하지만
+    // xterm 내부 상태(viewportY)와 화면(.xterm-screen)은 올바르게 유지된다. 따라서 스크롤바/휠
+    // 기준만 내부 상태에 맞춰 픽셀로 재동기화한다. .xterm-screen 렌더는 DOM scrollTop과 무관하므로
+    // 이 복원은 화면을 다시 그리지 않는다(깜빡임 없음). scrollToLine 댄스(0↔y 왕복)는 viewport
+    // scroll 이벤트와 핑퐁하며 중간 프레임을 만들 수 있어 쓰지 않는다.
+    // (v0.4.10에서 직접 설정이 무효화됐던 것은 당시 display:none으로 scrollHeight가 0이었기 때문.
+    //  display:none은 v0.4.13에서 제거되어 지금은 직접 설정이 유지된다.)
+    try {
+      const vp = container?.querySelector(".xterm-viewport") as HTMLElement | null;
+      if (vp) {
+        const buf = term.buffer.active;
+        const total = buf.baseY + term.rows;
+        if (total > 0 && vp.scrollHeight > 0) {
+          const expected = Math.round((buf.viewportY / total) * vp.scrollHeight);
+          if (Math.abs(vp.scrollTop - expected) > 1) {
+            vp.scrollTop = expected;
+          }
+        }
+      }
+    } catch { /* ignore */ }
 
-    sendResizeRef.current?.(term.cols, term.rows);
+    // 크기가 실제로 변했을 때만 무거운 일을 한다. 같은 크기인데도 매번 refresh+resize를 보내면
+    // ① 전체 재렌더 ② PTY winsize 재설정 → 그 안의 TUI(claude 등)가 화면 전체를 다시 그려
+    // 세션 전환 때마다 깜빡임이 보인다(전환 시 refit이 visible/refreshNonce effect로 2회 이상 실행됨).
+    if (dimsChanged) {
+      try { term.clearTextureAtlas(); } catch { /* ignore */ }
+      try { term.refresh(0, Math.max(term.rows - 1, 0)); } catch { /* ignore */ }
+      sendResizeRef.current?.(term.cols, term.rows);
+    }
+
     if (restoreFocus && visibleRef.current && focusedRef.current) {
       term.focus();
     }
