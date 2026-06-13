@@ -376,7 +376,11 @@ export default function Terminal({
     }));
 
     // Local file path link provider (Windows: C:\..., D:/...)
-    const filePathRegex = /[A-Za-z]:[/\\][^\s"'<>|)}\]]+/g;
+    // ① 따옴표/백틱으로 감싼 경로: 닫는 구분자까지 안쪽 전체(공백 포함)를 경로로 — 끝점이 명확.
+    //    (claude는 경로를 `백틱`이나 "큰따옴표"로 감싸 출력하는 경우가 많음)
+    // ② 감싸지 않은 경로: 공백 전까지(공백 없는 일반 경로). 닫는 괄호/꺾쇠 등은 경계로 제외.
+    const filePathRegex =
+      /([`"'])([A-Za-z]:[/\\][^`"'\r\n]+?)\1|([A-Za-z]:[/\\][^\s`"'<>|)}\]]+)/g;
     term.registerLinkProvider({
       provideLinks(lineNumber, callback) {
         const line = term.buffer.active.getLine(lineNumber - 1);
@@ -386,13 +390,17 @@ export default function Terminal({
         let match;
         filePathRegex.lastIndex = 0;
         while ((match = filePathRegex.exec(text)) !== null) {
+          // match[2] = 따옴표 안쪽 경로, match[3] = 따옴표 없는 경로
+          const filePath = match[2] ?? match[3];
+          if (!filePath) continue;
+          // 클릭 영역은 토큰 전체(따옴표 포함), 여는 경로는 따옴표를 뺀 실제 경로.
           links.push({
             range: {
               start: { x: match.index + 1, y: lineNumber },
               end: { x: match.index + match[0].length + 1, y: lineNumber },
             },
-            text: match[0],
-            activate: (event, filePath) => {
+            text: filePath,
+            activate: (event) => {
               if (event.ctrlKey || event.metaKey) {
                 // Ctrl+Click → open file with default app
                 void openExternal(`file:///${filePath.replace(/\\/g, "/")}`);
