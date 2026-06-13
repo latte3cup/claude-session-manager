@@ -789,6 +789,29 @@ export default function Terminal({
     }
   }, [visible, isFocused]);
 
+  // 창 포커스 복귀(다른 창 갔다 돌아옴) 시 WebView2/Chromium에서 IME가 helper textarea에
+  // 어긋나게 재부착되어 "첫 한글 조합이 중복 입력"되는 버그를, 깨끗한 포커스 사이클
+  // (blur→다음 프레임 focus)로 리셋한다. 사용자가 'Alt+Tab 두 번'으로 풀던 동작을 자동화.
+  // 입력 대상이 이 터미널일 때(=helper textarea가 activeElement)만 동작해 다른 입력란의
+  // 포커스를 가로채지 않는다.
+  useEffect(() => {
+    // 데스크톱(브라우저/WebView2)에서만. 모바일은 IME 경로가 다르고(위 composition 가드),
+    // blur/focus가 소프트 키보드를 깜빡이게 할 수 있어 제외.
+    if (/Android|iPad|iPhone|iPod/i.test(navigator.userAgent)) return;
+    const onWindowFocus = () => {
+      const ta = innerRef.current?.querySelector(
+        ".xterm-helper-textarea",
+      ) as HTMLTextAreaElement | null;
+      if (!ta || document.activeElement !== ta) return;
+      ta.blur();
+      requestAnimationFrame(() => {
+        if (document.hasFocus() && visibleRef.current) ta.focus();
+      });
+    };
+    window.addEventListener("focus", onWindowFocus);
+    return () => window.removeEventListener("focus", onWindowFocus);
+  }, []);
+
   // Ctrl+C: copy if selection exists, otherwise send SIGINT
   // Ctrl+V: paste from clipboard
   useEffect(() => {
