@@ -19,6 +19,7 @@ import {
   sendBrowserNotification,
 } from "./utils/notify";
 import { apiFetch, onAuthExpired, readErrorDetail } from "./utils/api";
+import { copyToClipboard } from "./utils/clipboard";
 import {
   collectSessionIds,
   createSingleLayout,
@@ -980,7 +981,7 @@ export default function App() {
 
   const handleCopyPath = useCallback(async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyToClipboard(text);
     } catch {
       // ignore clipboard failures
     }

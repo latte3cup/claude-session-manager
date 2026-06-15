@@ -9,6 +9,7 @@ import MobileKeyBar from "./MobileKeyBar";
 import FileExplorer from "./FileExplorer";
 import GitPanel, { GitIcon } from "./GitPanel";
 import { getCliTone } from "../utils/cliTones";
+import { copyToClipboard } from "../utils/clipboard";
 
 type MouseEventType = "press" | "release" | "move" | "drag" | "scroll";
 type MouseButton = 0 | 1 | 2 | 64 | 65;
@@ -830,7 +831,7 @@ export default function Terminal({
           e.preventDefault();
           e.stopPropagation();
           if (selection) {
-            void navigator.clipboard.writeText(selection);
+            void copyToClipboard(selection);
             term.clearSelection();
           }
         }

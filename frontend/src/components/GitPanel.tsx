@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { computeGraphLayout, type GitLogEntry } from "../utils/gitGraph";
 import { apiFetch } from "../utils/api";
+import { copyToClipboard } from "../utils/clipboard";
 import { uiPx } from "../utils/uiScale";
 
 /* =========================================================
@@ -398,7 +399,7 @@ export default function GitPanel({
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
       if (data.patch) {
-        await navigator.clipboard.writeText(data.patch);
+        await copyToClipboard(data.patch);
         setError("Patch copied to clipboard!");
         setTimeout(() => setError(null), 2000);
       }
