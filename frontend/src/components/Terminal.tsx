@@ -416,6 +416,22 @@ export default function Terminal({
       },
     });
 
+    // Ctrl/Cmd + Up/Down → 터미널 스크롤백 스크롤. xterm 파이프라인에서 직접 가로채(return false)
+    // PTY로는 보내지 않는다. (셸 기본값엔 거의 안 쓰이는 키라 충돌 위험 낮음)
+    const SCROLL_KEY_LINES = 3;
+    term.attachCustomKeyEventHandler((e) => {
+      if (
+        (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey &&
+        (e.key === "ArrowUp" || e.key === "ArrowDown")
+      ) {
+        if (e.type === "keydown") {
+          term.scrollLines(e.key === "ArrowUp" ? -SCROLL_KEY_LINES : SCROLL_KEY_LINES);
+        }
+        return false;
+      }
+      return true;
+    });
+
     // Enable mouse events - SGR mode (1006)
     term.element?.classList.add("xterm-enable-mouse");
 
