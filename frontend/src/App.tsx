@@ -138,6 +138,21 @@ function buildDefaultProjectLayout(project: Project): LayoutNode | null {
   return preferredSession ? createSingleLayout(preferredSession.id) : null;
 }
 
+// 전체화면 API — 삼성 인터넷 등 일부 브라우저는 표준 대신 webkit 프리픽스만 지원해 폴백한다.
+type FsElement = HTMLElement & { webkitRequestFullscreen?: () => unknown };
+type FsDocument = Document & { webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => unknown };
+function getFullscreenElement(): Element | null {
+  return document.fullscreenElement ?? (document as FsDocument).webkitFullscreenElement ?? null;
+}
+function requestAppFullscreen(el: HTMLElement): void {
+  const fn = el.requestFullscreen ?? (el as FsElement).webkitRequestFullscreen;
+  if (fn) { try { void Promise.resolve(fn.call(el)).catch(() => {}); } catch { /* ignore */ } }
+}
+function exitAppFullscreen(): void {
+  const fn = document.exitFullscreen ?? (document as FsDocument).webkitExitFullscreen;
+  if (fn) { try { void Promise.resolve(fn.call(document)).catch(() => {}); } catch { /* ignore */ } }
+}
+
 function getDisplayLayout(layout: LayoutNode | null, focusedPaneId: string | null, isMobileViewport: boolean): LayoutNode | null {
   if (!layout) return null;
   if (!isMobileViewport) return layout;
@@ -1096,21 +1111,17 @@ export default function App() {
   // 몰입(전체화면, 터미널만) 모드. 브라우저 주소창은 Fullscreen API로, 앱 헤더/사이드바는
   // .immersive 클래스로 숨긴다. (주소창은 JS로 직접 못 지우므로 requestFullscreen 사용)
   const enterImmersive = useCallback(() => {
+    // requestFullscreen은 사용자 동작(탭/키) 컨텍스트에서 "먼저" 호출해야 활성화가 유지된다.
+    if (!getFullscreenElement()) requestAppFullscreen(document.documentElement);
     prevSidebarOpenRef.current = sidebarOpen;
     setSidebarOpen(false);
     setImmersive(true);
-    const el = document.documentElement;
-    if (!document.fullscreenElement && el.requestFullscreen) {
-      el.requestFullscreen().catch(() => { /* user gesture 필요 등 — 무시 */ });
-    }
   }, [sidebarOpen]);
 
   const exitImmersive = useCallback(() => {
     setImmersive(false);
     setSidebarOpen(prevSidebarOpenRef.current);
-    if (document.fullscreenElement && document.exitFullscreen) {
-      void document.exitFullscreen().catch(() => {});
-    }
+    if (getFullscreenElement()) exitAppFullscreen();
   }, []);
 
   const toggleImmersive = useCallback(() => {
@@ -1118,11 +1129,11 @@ export default function App() {
     else enterImmersive();
   }, [immersive, enterImmersive, exitImmersive]);
 
-  // Alt+Enter: 몰입 모드 토글 (모든 기기)
+  // F11: 몰입 모드 토글. (Alt+Enter는 터미널 줄바꿈에 쓰여 충돌하므로 F11로 변경)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!e.altKey || e.ctrlKey || e.shiftKey || e.metaKey) return;
-      if (e.key !== "Enter") return;
+      if (e.key !== "F11") return;
+      if (e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return;
       e.preventDefault();
       e.stopPropagation();
       toggleImmersive();
@@ -1134,7 +1145,7 @@ export default function App() {
   // 전체화면이 외부 요인(Esc/안드로이드 back 제스처)으로 풀리면 몰입 상태도 동기화
   useEffect(() => {
     const onFsChange = () => {
-      if (!document.fullscreenElement) {
+      if (!getFullscreenElement()) {
         setImmersive((cur) => {
           if (cur) setSidebarOpen(prevSidebarOpenRef.current);
           return false;
@@ -1142,7 +1153,11 @@ export default function App() {
       }
     };
     document.addEventListener("fullscreenchange", onFsChange);
-    return () => document.removeEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("webkitfullscreenchange", onFsChange);
+    };
   }, []);
 
   // Alt+1~9: switch to session by index
@@ -1873,7 +1888,7 @@ export default function App() {
                     <button
                       className={`theme-chip${immersive ? " is-active" : ""}`}
                       onClick={() => { setShowSettings(false); toggleImmersive(); }}
-                      title="Alt+Enter"
+                      title="F11"
                     >
                       {immersive ? "전체화면 끄기" : "전체화면 (터미널만)"}
                     </button>
