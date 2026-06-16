@@ -426,6 +426,17 @@ button {
   position: relative;
 }
 
+/* 몰입(전체화면, 터미널만) 모드 — Alt+Enter. 헤더/사이드바를 숨겨 터미널이 화면을 꽉 채운다.
+   terminal-area는 .app-body(flex)에서 flex:1이라 형제를 숨기면 자동 확장. */
+.app-container.immersive .app-header,
+.app-container.immersive .sidebar,
+.app-container.immersive .sidebar-resize {
+  display: none;
+}
+.app-container.immersive .terminal-area {
+  border-radius: 0;
+}
+
 .sidebar {
   background: var(--surface-1);
   border-radius: var(--radius-xl);

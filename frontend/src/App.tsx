@@ -228,6 +228,8 @@ export default function App() {
   const [terminalKeepAliveRoot, setTerminalKeepAliveRoot] = useState<HTMLDivElement | null>(null);
   const [openAloneSnapshot, setOpenAloneSnapshot] = useState<OpenAloneSnapshot | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [immersive, setImmersive] = useState(false);
+  const prevSidebarOpenRef = useRef(true);
   const [webFontSize, setWebFontSize] = useState(() => getStoredFontSize("webFontSize", 14));
   const [terminalFontSize, setTerminalFontSize] = useState(() => getStoredFontSize("terminalFontSize", 14));
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
@@ -1091,6 +1093,58 @@ export default function App() {
     });
   }, [applyWorkspaceLayout, bumpSessionRefresh, clearOpenAloneSnapshot, ensureSessionReady, focusExternalOwner, isMobileViewport, layoutRoot, workspaceMode]);
 
+  // 몰입(전체화면, 터미널만) 모드. 브라우저 주소창은 Fullscreen API로, 앱 헤더/사이드바는
+  // .immersive 클래스로 숨긴다. (주소창은 JS로 직접 못 지우므로 requestFullscreen 사용)
+  const enterImmersive = useCallback(() => {
+    prevSidebarOpenRef.current = sidebarOpen;
+    setSidebarOpen(false);
+    setImmersive(true);
+    const el = document.documentElement;
+    if (!document.fullscreenElement && el.requestFullscreen) {
+      el.requestFullscreen().catch(() => { /* user gesture 필요 등 — 무시 */ });
+    }
+  }, [sidebarOpen]);
+
+  const exitImmersive = useCallback(() => {
+    setImmersive(false);
+    setSidebarOpen(prevSidebarOpenRef.current);
+    if (document.fullscreenElement && document.exitFullscreen) {
+      void document.exitFullscreen().catch(() => {});
+    }
+  }, []);
+
+  const toggleImmersive = useCallback(() => {
+    if (immersive) exitImmersive();
+    else enterImmersive();
+  }, [immersive, enterImmersive, exitImmersive]);
+
+  // Alt+Enter: 몰입 모드 토글 (모든 기기)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!e.altKey || e.ctrlKey || e.shiftKey || e.metaKey) return;
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      e.stopPropagation();
+      toggleImmersive();
+    };
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
+  }, [toggleImmersive]);
+
+  // 전체화면이 외부 요인(Esc/안드로이드 back 제스처)으로 풀리면 몰입 상태도 동기화
+  useEffect(() => {
+    const onFsChange = () => {
+      if (!document.fullscreenElement) {
+        setImmersive((cur) => {
+          if (cur) setSidebarOpen(prevSidebarOpenRef.current);
+          return false;
+        });
+      }
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
   // Alt+1~9: switch to session by index
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1778,7 +1832,7 @@ export default function App() {
   const isMainWindow = !desktopLaunchContext || desktopLaunchContext.role === "main";
 
   return (
-    <div className="app-container" data-theme={theme} data-window-role={desktopLaunchContext?.role ?? "main"} style={viewportHeight ? { height: viewportHeight } : undefined}>
+    <div className={`app-container${immersive ? " immersive" : ""}`} data-theme={theme} data-window-role={desktopLaunchContext?.role ?? "main"} style={viewportHeight ? { height: viewportHeight } : undefined}>
       {isMainWindow && (
         <header className="app-header workbench-card">
           <div className="header-left">
@@ -1813,6 +1867,18 @@ export default function App() {
             </button>
             {showSettings && (
               <div className="settings-panel">
+                <div className="settings-section">
+                  <label className="settings-label">Display</label>
+                  <div className="theme-toggle-group">
+                    <button
+                      className={`theme-chip${immersive ? " is-active" : ""}`}
+                      onClick={() => { setShowSettings(false); toggleImmersive(); }}
+                      title="Alt+Enter"
+                    >
+                      {immersive ? "전체화면 끄기" : "전체화면 (터미널만)"}
+                    </button>
+                  </div>
+                </div>
                 <div className="settings-section">
                   <label className="settings-label">Theme</label>
                   <div className="theme-toggle-group">
