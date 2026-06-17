@@ -29,6 +29,7 @@ interface SessionListProps {
   onReorderProjectSessions?: (projectId: string, orderedIds: string[]) => void;
   onSessionLayoutDragStart?: (sessionId: string) => void;
   onSessionLayoutDragEnd?: () => void;
+  onOpenSplit?: (sessionIds: string[]) => void;
 }
 
 type ContextMenuState
@@ -170,6 +171,7 @@ export default function SessionList({
   onReorderProjectSessions,
   onSessionLayoutDragStart,
   onSessionLayoutDragEnd,
+  onOpenSplit,
 }: SessionListProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -186,6 +188,15 @@ export default function SessionList({
   const [sessionTerminateTarget, setSessionTerminateTarget] = useState<Session | null>(null);
   const [actionPending, setActionPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // "반반 보기": 두 세션을 체크해 50/50 분할로 연다.
+  const [splitPick, setSplitPick] = useState<string[]>([]);
+  const toggleSplitPick = useCallback((id: string) => {
+    setSplitPick((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= 2) return [prev[prev.length - 1], id];
+      return [...prev, id];
+    });
+  }, []);
   const touchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initializedExpandedRef = useRef(false);
   const previousProjectIdsRef = useRef<string[]>([]);
@@ -725,6 +736,18 @@ export default function SessionList({
                         }}
                       >
                         <div className="session-row__main">
+                          {onOpenSplit && session.status === "active" && (
+                            <button
+                              type="button"
+                              className={`session-row__split-pick${splitPick.includes(session.id) ? " is-picked" : ""}`}
+                              title="반반 보기로 선택 (2개)"
+                              aria-label={`Select ${session.name} for split view`}
+                              onMouseDown={(event) => event.stopPropagation()}
+                              onClick={(event) => { event.stopPropagation(); toggleSplitPick(session.id); }}
+                            >
+                              {splitPick.includes(session.id) ? "☑" : "☐"}
+                            </button>
+                          )}
                           <button
                             type="button"
                             className={`session-row__drag-handle${reorderEnabled ? "" : " is-disabled"}`}
@@ -793,6 +816,16 @@ export default function SessionList({
       </div>
 
       <div className="session-list__footer">
+        {onOpenSplit && splitPick.length > 0 && (
+          <button
+            type="button"
+            className="primary-button session-list__split-btn"
+            disabled={splitPick.length !== 2}
+            onClick={() => { if (splitPick.length === 2) { onOpenSplit(splitPick); setSplitPick([]); } }}
+          >
+            반반 보기 ({splitPick.length}/2)
+          </button>
+        )}
         <div className="split-hint">Drag sessions into the workbench to place or replace panes.</div>
         <button className="primary-button" data-testid="new-project-button" onClick={onNewProject}>
           + New Project

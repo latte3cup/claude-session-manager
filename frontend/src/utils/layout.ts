@@ -49,6 +49,22 @@ export function createSingleLayout(sessionId: string, paneId?: string): LayoutLe
   return createLeaf(sessionId, paneId);
 }
 
+// 두 세션을 50/50으로 나란히 두는 분할 레이아웃 ("반반 보기"). 기본은 좌우(row).
+export function createSplitLayout(
+  firstSessionId: string,
+  secondSessionId: string,
+  direction: LayoutDirection = "row",
+): LayoutSplitNode {
+  return {
+    type: "split",
+    splitId: makeId(SPLIT_ID_PREFIX),
+    direction,
+    ratio: 0.5,
+    first: createLeaf(firstSessionId),
+    second: createLeaf(secondSessionId),
+  };
+}
+
 export function collectLeafNodes(root: LayoutNode | null): LayoutLeafNode[] {
   if (!root) return [];
   if (root.type === "leaf") return [root];

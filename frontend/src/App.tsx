@@ -22,7 +22,9 @@ import { apiFetch, onAuthExpired, readErrorDetail } from "./utils/api";
 import { copyToClipboard } from "./utils/clipboard";
 import {
   collectSessionIds,
+  collectLeafNodes,
   createSingleLayout,
+  createSplitLayout,
   findLeafByPaneId,
   findPaneIdBySessionId,
   getFirstLeaf,
@@ -153,9 +155,9 @@ function exitAppFullscreen(): void {
   if (fn) { try { void Promise.resolve(fn.call(document)).catch(() => {}); } catch { /* ignore */ } }
 }
 
-function getDisplayLayout(layout: LayoutNode | null, focusedPaneId: string | null, isMobileViewport: boolean): LayoutNode | null {
+function getDisplayLayout(layout: LayoutNode | null, focusedPaneId: string | null, isMobileViewport: boolean, forceFull = false): LayoutNode | null {
   if (!layout) return null;
-  if (!isMobileViewport) return layout;
+  if (!isMobileViewport || forceFull) return layout;
   return findLeafByPaneId(layout, focusedPaneId) ?? getFirstLeaf(layout);
 }
 
@@ -224,6 +226,7 @@ export default function App() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectsLoadedOnce, setProjectsLoadedOnce] = useState(false);
   const [layoutRoot, setLayoutRoot] = useState<LayoutNode | null>(null);
+  const [forceShowSplit, setForceShowSplit] = useState(false);
   const [focusedPaneId, setFocusedPaneId] = useState<string | null>(null);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("ephemeral");
   const [layoutOwnerProjectId, setLayoutOwnerProjectId] = useState<string | null>(null);
@@ -293,8 +296,8 @@ export default function App() {
   const visibleSessionIdsRef = useRef(layoutSessionIds);
   visibleSessionIdsRef.current = layoutSessionIds;
   const displayedLayout = useMemo(
-    () => getDisplayLayout(layoutRoot, focusedPaneId, isMobileViewport),
-    [focusedPaneId, isMobileViewport, layoutRoot],
+    () => getDisplayLayout(layoutRoot, focusedPaneId, isMobileViewport, forceShowSplit),
+    [focusedPaneId, isMobileViewport, layoutRoot, forceShowSplit],
   );
   const focusedLeaf = useMemo(
     () => findLeafByPaneId(layoutRoot, focusedPaneId) ?? getFirstLeaf(layoutRoot),
@@ -1088,6 +1091,7 @@ export default function App() {
     if (await focusExternalOwner(sessionId)) {
       return;
     }
+    setForceShowSplit(false);
 
     await ensureSessionReady(sessionId, sourceProjects);
 
@@ -1107,6 +1111,21 @@ export default function App() {
       refreshSessionIds: [sessionId],
     });
   }, [applyWorkspaceLayout, bumpSessionRefresh, clearOpenAloneSnapshot, ensureSessionReady, focusExternalOwner, isMobileViewport, layoutRoot, workspaceMode]);
+
+  // "반반 보기": 사이드바에서 체크한 두 세션을 50/50 분할로 연다. 좁은 화면(태블릿)에서도
+  // 접히지 않도록 forceShowSplit을 켠다.
+  const openSplitView = useCallback((sessionIds: string[]) => {
+    const [a, b] = sessionIds;
+    if (!a || !b || a === b) return;
+    clearOpenAloneSnapshot();
+    setForceShowSplit(true);
+    applyWorkspaceLayout(createSplitLayout(a, b, "row"), {
+      mode: "ephemeral",
+      ownerProjectId: null,
+      refreshSessionIds: [a, b],
+    });
+    if (isMobileViewport) setSidebarOpen(false);
+  }, [applyWorkspaceLayout, clearOpenAloneSnapshot, isMobileViewport]);
 
   // 몰입(전체화면, 터미널만) 모드. 브라우저 주소창은 Fullscreen API로, 앱 헤더/사이드바는
   // .immersive 클래스로 숨긴다. (주소창은 JS로 직접 못 지우므로 requestFullscreen 사용)
@@ -1160,13 +1179,24 @@ export default function App() {
     };
   }, []);
 
-  // Alt+1~9: switch to session by index
+  // Alt+1~9: 단일이면 세션 전환, 분할이면 좌/우(첫/둘째) pane 포커스 이동
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!e.altKey || e.ctrlKey || e.shiftKey || e.metaKey) return;
       const num = parseInt(e.key, 10);
       if (isNaN(num)) return;
-      // Alt+1~9 = session 1~9, Alt+0 = session 10
+      // 분할 상태: Alt+1=왼쪽, Alt+2=오른쪽... 포커스만 이동(세션 전환 안 함)
+      if (displayedLayout?.type === "split") {
+        const leaves = collectLeafNodes(displayedLayout);
+        const idx = num - 1;
+        if (idx >= 0 && idx < leaves.length) {
+          e.preventDefault();
+          e.stopPropagation();
+          setFocusedPaneId(leaves[idx].paneId);
+        }
+        return;
+      }
+      // 단일: 기존 세션 전환 (Alt+1~9 = session 1~9, Alt+0 = session 10)
       const idx = num === 0 ? 9 : num - 1;
       if (idx < sessions.length) {
         e.preventDefault();
@@ -1176,7 +1206,26 @@ export default function App() {
     };
     window.addEventListener("keydown", handleKeyDown, { capture: true });
     return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
-  }, [sessions, openSessionEphemeral]);
+  }, [sessions, openSessionEphemeral, displayedLayout]);
+
+  // 분할 모드: Ctrl+Tab = 좌/우 pane 포커스 토글 (왔다갔다). Ctrl+Shift+Tab은 역방향.
+  // (브라우저 탭에선 Ctrl+Tab을 브라우저가 가로챌 수 있음 — 데스크톱 앱/PWA에선 동작)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab" || !e.ctrlKey || e.altKey || e.metaKey) return;
+      if (displayedLayout?.type !== "split") return;
+      const leaves = collectLeafNodes(displayedLayout);
+      if (leaves.length < 2) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const cur = leaves.findIndex((l) => l.paneId === focusedPaneId);
+      const step = e.shiftKey ? -1 : 1;
+      const next = ((cur < 0 ? 0 : cur) + step + leaves.length) % leaves.length;
+      setFocusedPaneId(leaves[next].paneId);
+    };
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", handleKeyDown, { capture: true });
+  }, [displayedLayout, focusedPaneId]);
 
   const openSessionAlone = useCallback(async (sessionId: string) => {
     if (!layoutRoot || layoutSessionIds.length <= 1 || isMobileViewport) {
@@ -2030,6 +2079,7 @@ export default function App() {
                 onReorderProjects={handleReorderProjects}
                 onReorderProjectSessions={handleReorderProjectSessions}
                 onSessionLayoutDragStart={setDraggedLayoutSessionId}
+                onOpenSplit={openSplitView}
                 onSessionLayoutDragEnd={() => {
                   setDraggedLayoutSessionId(null);
                   setLayoutIndicator(null);

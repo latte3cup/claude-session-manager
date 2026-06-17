@@ -444,6 +444,29 @@ button {
   flex-shrink: 0;
 }
 
+/* "반반 보기" 세션 선택 체크박스 + 푸터 버튼 */
+.session-row__split-pick {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.session-row__split-pick.is-picked {
+  color: var(--success);
+}
+.session-list__split-btn {
+  width: 100%;
+  margin-bottom: 8px;
+}
+.session-list__split-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .sidebar-resize {
   width: 8px;
   flex-shrink: 0;
