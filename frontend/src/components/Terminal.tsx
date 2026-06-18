@@ -463,12 +463,23 @@ export default function Terminal({
     const isMobilePlatform = /Android|iPad|iPhone|iPod/i.test(navigator.userAgent);
     const textarea = innerRef.current.querySelector(".xterm-helper-textarea") as HTMLTextAreaElement | null;
     let compositionEndTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastComposed = ""; // 직전 조합 완성 문자 — xterm이 같은 글자를 onData로 또 보내는 중복 차단용
     const onCompositionStart = () => {
       if (compositionEndTimer) { clearTimeout(compositionEndTimer); compositionEndTimer = null; }
       composingRef.current = true;
     };
-    const onCompositionEnd = () => {
-      compositionEndTimer = setTimeout(() => { composingRef.current = false; }, 30);
+    const onCompositionEnd = (e: CompositionEvent) => {
+      // 완성 글자를 직접 전송해 확실히 flush한다.
+      // (기존: compositionend 후 30ms간 onData를 막았는데, xterm의 완성-글자 onData가 그 안에
+      //  들어오면 같이 막혀서 마지막 한글이 가끔 유실됐다 — "버퍼에서 플러쉬 안 됨" 증상.)
+      const text = e.data || "";
+      composingRef.current = false;
+      if (text) {
+        sendInputRef.current?.(text);
+        lastComposed = text;
+        if (compositionEndTimer) clearTimeout(compositionEndTimer);
+        compositionEndTimer = setTimeout(() => { lastComposed = ""; }, 80);
+      }
     };
     if (isMobilePlatform && textarea) {
       textarea.addEventListener("compositionstart", onCompositionStart);
@@ -481,7 +492,11 @@ export default function Terminal({
 
       if (!sendInput || !sendMouse) return;
 
-      if (isMobilePlatform && composingRef.current) return;
+      if (isMobilePlatform) {
+        if (composingRef.current) return; // 조합 중 중간 상태는 보내지 않음
+        // 위 compositionend에서 직접 보낸 완성 글자를 xterm이 또 onData로 보내면 무시(중복 방지)
+        if (lastComposed && data === lastComposed) { lastComposed = ""; return; }
+      }
 
       // Check for mouse escape sequences (SGR 1006 mode)
       if (data.startsWith("\x1b[") && data.includes("M")) {
