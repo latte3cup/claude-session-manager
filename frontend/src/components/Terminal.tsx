@@ -399,7 +399,8 @@ export default function Terminal({
           // match[2] = 따옴표 안쪽 경로, match[3] = 따옴표 없는 경로
           const filePath = match[2] ?? match[3];
           if (!filePath) continue;
-          // 클릭 영역은 토큰 전체(따옴표 포함), 여는 경로는 따옴표를 뺀 실제 경로.
+          // 검출(range)은 따옴표까지 포함 — 공백 있는 경로를 안전하게 한 덩어리로 잡음.
+          // 실제 여는 경로(text/activate)는 따옴표를 뺀 안쪽 경로(match[2]) 사용.
           links.push({
             range: {
               start: { x: match.index + 1, y: lineNumber },

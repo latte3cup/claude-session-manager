@@ -18,6 +18,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set app version from input
+        shell: pwsh
+        run: |
+          $version = "${{ github.event.inputs.version }}".TrimStart("v")
+          $conf = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          $conf | Add-Member -NotePropertyName version -NotePropertyValue $version -Force
+          $conf | ConvertTo-Json -Depth 30 | Set-Content src-tauri/tauri.conf.json -Encoding utf8
+          Write-Host "tauri.conf.json version -> $version"
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
