@@ -114,6 +114,22 @@ pub async fn reveal_in_file_explorer(file_path: String) -> bool {
 }
 
 #[tauri::command]
+pub fn resolve_path(candidate: String) -> String {
+    // 터미널 링크가 공백 포함 경로를 넉넉히 잡았을 때, 뒤 공백 토큰을 하나씩 떼며
+    // 실제 존재하는 최장 경로를 파일시스템으로 판정한다 (공백 뒤에 붙은 산문 배제).
+    let mut s = candidate.trim_end().to_string();
+    loop {
+        if !s.is_empty() && std::path::Path::new(&s).exists() {
+            return s;
+        }
+        match s.rfind(' ') {
+            Some(i) => s = s[..i].trim_end().to_string(),
+            None => return candidate,
+        }
+    }
+}
+
+#[tauri::command]
 pub fn toggle_devtools(window: tauri::WebviewWindow) {
     #[cfg(debug_assertions)]
     {

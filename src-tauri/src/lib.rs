@@ -54,6 +54,7 @@ pub fn run() {
             commands::app::record_recent_project,
             commands::app::remove_recent_project,
             commands::app::reveal_in_file_explorer,
+            commands::app::resolve_path,
             commands::app::set_badge_count,
             commands::app::get_clipboard_file_paths,
             commands::app::toggle_devtools,

@@ -294,6 +294,15 @@ export async function revealInFileExplorer(filePath: string): Promise<void> {
   if (RUNTIME() === "tauri") { await tauriInvoke("reveal_in_file_explorer", { filePath }); return; }
 }
 
+// 터미널 링크가 공백 포함 경로를 넉넉히 잡았을 때, 실제 존재하는 최장 경로로 좁힌다(데스크톱 파일시스템 판정).
+export async function resolveExistingPath(candidate: string): Promise<string> {
+  if (RUNTIME() === "tauri") {
+    try { return await tauriInvoke<string>("resolve_path", { candidate }); }
+    catch { return candidate; }
+  }
+  return candidate;
+}
+
 export async function getClipboardFilePaths(): Promise<string[]> {
   if (RUNTIME() === "tauri") return tauriInvoke<string[]>("get_clipboard_file_paths");
   return [];
