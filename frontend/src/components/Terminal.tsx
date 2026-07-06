@@ -4,7 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import { useWebSocket, getWsUrl } from "../hooks/useWebSocket";
-import { openExternal, getClipboardFilePaths, revealInFileExplorer, resolveExistingPath } from "../runtime";
+import { openExternal, getClipboardFilePaths, revealInFileExplorer } from "../runtime";
 import MobileKeyBar from "./MobileKeyBar";
 import FileExplorer from "./FileExplorer";
 import GitPanel, { GitIcon } from "./GitPanel";
@@ -380,67 +380,42 @@ export default function Terminal({
     // ① 따옴표/백틱으로 감싼 경로: 닫는 구분자까지 안쪽 전체(공백 포함)를 경로로 — 끝점이 명확.
     //    (claude는 경로를 `백틱`이나 "큰따옴표"로 감싸 출력하는 경우가 많음)
     // ② 감싸지 않은 경로: 공백 전까지(공백 없는 일반 경로). 닫는 괄호/꺾쇠 등은 경계로 제외.
-    // resolve_path 결과 캐시 (같은 후보 반복 hover 시 재호출 방지)
-    const pathResolveCache = new Map<string, string>();
-    const resolveCached = async (candidate: string): Promise<string> => {
-      const hit = pathResolveCache.get(candidate);
-      if (hit !== undefined) return hit;
-      const resolved = await resolveExistingPath(candidate);
-      if (pathResolveCache.size > 500) pathResolveCache.clear();
-      pathResolveCache.set(candidate, resolved);
-      return resolved;
-    };
+    // 파일경로 링크
     // ① 따옴표/백틱 감싼 경로: 안쪽 전체(공백 포함).
-    // ② 바레 경로: 단일 공백 허용해 넉넉히 캡처 → 진짜 끝은 resolveExistingPath로 파일시스템 판정(공백 뒤 산문 배제).
+    // ② 바레 경로: 공백은 "뒤에 더 경로+구분자(\ 또는 /)가 있을 때만" 소비 →
+    //    중간 세그먼트 공백("Claude Workspace\...")은 포함, 경로 뒤 산문(" 이건 산문")은 배제.
+    //    ★동기 판정이라 xterm이 밑줄을 즉시 렌더링(비동기 provideLinks는 밑줄이 안 그려짐).
     const filePathRegex =
-      /([`"'])([A-Za-z]:[/\\][^`"'\r\n]+?)\1|([A-Za-z]:[/\\][^\s`"'<>|)}\]]+(?:\x20[^\s`"'<>|)}\]]+)*)/g;
+      /([`"'])([A-Za-z]:[/\\][^`"'\r\n]+?)\1|([A-Za-z]:[/\\][^\s`"'<>|)}\]](?:[^\s`"'<>|)}\]]|\x20(?=[^\s`"'<>|)}\]]*[/\\]))*)/g;
     term.registerLinkProvider({
       provideLinks(lineNumber, callback) {
         const line = term.buffer.active.getLine(lineNumber - 1);
         if (!line) { callback(undefined); return; }
         const text = line.translateToString();
-        type Cand = { index: number; rawLen: number; path: string; quoted: boolean };
-        const cands: Cand[] = [];
+        const links: import("@xterm/xterm").ILink[] = [];
         let match;
         filePathRegex.lastIndex = 0;
         while ((match = filePathRegex.exec(text)) !== null) {
           // match[2] = 따옴표 안쪽 경로, match[3] = 따옴표 없는 경로
           const filePath = match[2] ?? match[3];
           if (!filePath) continue;
-          cands.push({ index: match.index, rawLen: match[0].length, path: filePath, quoted: match[2] != null });
-        }
-        if (cands.length === 0) { callback(undefined); return; }
-        // 클릭 영역은 range, 여는/표시 경로는 c.path.
-        const mkLink = (c: Cand): import("@xterm/xterm").ILink => ({
-          range: {
-            start: { x: c.index + 1, y: lineNumber },
-            end: { x: c.index + c.rawLen + 1, y: lineNumber },
-          },
-          text: c.path,
-          activate: (event) => {
-            if (event.ctrlKey || event.metaKey) {
-              void openExternal(`file:///${c.path.replace(/\\/g, "/")}`);
-            } else {
-              void revealInFileExplorer(c.path);
-            }
-          },
-        });
-        // 따옴표 없이 공백 포함한 후보만 실제 존재하는 최장 경로로 범위 확정(비동기). 나머지는 즉시.
-        if (!cands.some((c) => !c.quoted && c.path.includes(" "))) {
-          callback(cands.map(mkLink));
-          return;
-        }
-        void Promise.all(
-          cands.map(async (c): Promise<import("@xterm/xterm").ILink> => {
-            if (!c.quoted && c.path.includes(" ")) {
-              const resolved = await resolveCached(c.path);
-              if (resolved && resolved.length > 0 && resolved.length <= c.path.length) {
-                return mkLink({ ...c, path: resolved, rawLen: resolved.length });
+          // 클릭 영역은 토큰 전체(따옴표 포함), 여는 경로는 따옴표를 뺀 실제 경로.
+          links.push({
+            range: {
+              start: { x: match.index + 1, y: lineNumber },
+              end: { x: match.index + match[0].length + 1, y: lineNumber },
+            },
+            text: filePath,
+            activate: (event) => {
+              if (event.ctrlKey || event.metaKey) {
+                void openExternal(`file:///${filePath.replace(/\\/g, "/")}`);
+              } else {
+                void revealInFileExplorer(filePath);
               }
-            }
-            return mkLink(c);
-          }),
-        ).then((links) => callback(links.length > 0 ? links : undefined));
+            },
+          });
+        }
+        callback(links.length > 0 ? links : undefined);
       },
     });
 
