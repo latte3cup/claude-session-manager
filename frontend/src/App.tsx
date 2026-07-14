@@ -234,7 +234,7 @@ export default function App() {
   const [draggedLayoutSessionId, setDraggedLayoutSessionId] = useState<string | null>(null);
   const [showNewProject, setShowNewProject] = useState(false);
   const [newSessionProjectId, setNewSessionProjectId] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const stored = localStorage.getItem("sidebarWidth");
     return stored ? Number(stored) : 260;
@@ -247,7 +247,7 @@ export default function App() {
   const [openAloneSnapshot, setOpenAloneSnapshot] = useState<OpenAloneSnapshot | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [immersive, setImmersive] = useState(false);
-  const prevSidebarOpenRef = useRef(true);
+  const prevSidebarOpenRef = useRef(false);
   const [webFontSize, setWebFontSize] = useState(() => getStoredFontSize("webFontSize", 14));
   const [terminalFontSize, setTerminalFontSize] = useState(() => getStoredFontSize("terminalFontSize", 14));
   const [viewportHeight, setViewportHeight] = useState<number | null>(null);
