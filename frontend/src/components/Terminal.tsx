@@ -466,10 +466,14 @@ export default function Terminal({
     // IME composition tracking for mobile/tablet (prevents duplicate input with Korean etc.)
     const isMobilePlatform = /Android|iPad|iPhone|iPod/i.test(navigator.userAgent);
     const textarea = innerRef.current.querySelector(".xterm-helper-textarea") as HTMLTextAreaElement | null;
+    // xterm은 조합 완성 글자를 input 이벤트와 _finalizeComposition(setTimeout) 두 경로로 각각
+    // onData에 흘린다. 가드를 한 번만 쓰고 해제하면 두 번째 것이 통과해 마지막 글자가 중복된다
+    // (삼성 키보드에서 스페이스로 조합을 끝낼 때 "안녕녕"처럼 나오던 증상).
+    // 따라서 가드는 소비하지 않고 시간(DUP_GUARD_MS)으로만 푼다.
+    const DUP_GUARD_MS = 250;
     let compositionEndTimer: ReturnType<typeof setTimeout> | null = null;
     let lastComposed = ""; // 직전 조합 완성 문자 — xterm이 같은 글자를 onData로 또 보내는 중복 차단용
     const onCompositionStart = () => {
-      if (compositionEndTimer) { clearTimeout(compositionEndTimer); compositionEndTimer = null; }
       composingRef.current = true;
     };
     const onCompositionEnd = (e: CompositionEvent) => {
@@ -482,7 +486,10 @@ export default function Terminal({
         sendInputRef.current?.(text);
         lastComposed = text;
         if (compositionEndTimer) clearTimeout(compositionEndTimer);
-        compositionEndTimer = setTimeout(() => { lastComposed = ""; }, 80);
+        compositionEndTimer = setTimeout(() => {
+          lastComposed = "";
+          compositionEndTimer = null;
+        }, DUP_GUARD_MS);
       }
     };
     if (isMobilePlatform && textarea) {
@@ -498,8 +505,17 @@ export default function Terminal({
 
       if (isMobilePlatform) {
         if (composingRef.current) return; // 조합 중 중간 상태는 보내지 않음
-        // 위 compositionend에서 직접 보낸 완성 글자를 xterm이 또 onData로 보내면 무시(중복 방지)
-        if (lastComposed && data === lastComposed) { lastComposed = ""; return; }
+        // 위 compositionend에서 직접 보낸 완성 글자를 xterm이 또 onData로 보내면 무시(중복 방지).
+        // 가드를 해제하지 않는 이유는 위 주석 참고 — xterm이 같은 글자를 두 번 보낸다.
+        if (lastComposed) {
+          if (data === lastComposed) return;
+          // 완성 글자에 확정 키(스페이스 등)가 붙어 함께 오는 경우 — 뒤에 붙은 것만 전달
+          if (data.startsWith(lastComposed)) {
+            const rest = data.slice(lastComposed.length);
+            if (rest) sendInput(rest);
+            return;
+          }
+        }
       }
 
       // Check for mouse escape sequences (SGR 1006 mode)
