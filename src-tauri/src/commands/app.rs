@@ -86,9 +86,13 @@ pub fn remove_recent_project(
 pub async fn reveal_in_file_explorer(file_path: String) -> bool {
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
         let normalized = file_path.replace("/", "\\");
+        // .arg()는 공백 포함 인자를 통째로 따옴표로 감싸("explorer "/select,C:\a b""),
+        // explorer가 /select 스위치를 인식 못 한다. 스위치는 밖에 두고 경로만 따옴표로
+        // 감싼 원시 인자로 넘긴다: explorer /select,"C:\a b"
         std::process::Command::new("explorer")
-            .arg(format!("/select,{}", normalized))
+            .raw_arg(format!("/select,\"{}\"", normalized))
             .spawn()
             .is_ok()
     }
