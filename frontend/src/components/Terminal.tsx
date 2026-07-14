@@ -471,9 +471,13 @@ export default function Terminal({
     // (삼성 키보드에서 스페이스로 조합을 끝낼 때 "안녕녕"처럼 나오던 증상).
     // 따라서 가드는 소비하지 않고 시간(DUP_GUARD_MS)으로만 푼다.
     const DUP_GUARD_MS = 250;
+    // 자모(U+3130-318F) + 완성형 음절(U+AC00-D7A3)만으로 이뤄진 문자열
+    const HANGUL_ONLY_RE = /^[㄰-㆏가-힣]+$/;
     let compositionEndTimer: ReturnType<typeof setTimeout> | null = null;
     let lastComposed = ""; // 직전 조합 완성 문자 — xterm이 같은 글자를 onData로 또 보내는 중복 차단용
+    let sawComposition = false; // 이 세션에서 조합형 IME(소프트 키보드) 사용이 확인됨
     const onCompositionStart = () => {
+      sawComposition = true;
       composingRef.current = true;
     };
     const onCompositionEnd = (e: CompositionEvent) => {
@@ -509,13 +513,21 @@ export default function Terminal({
         // 가드를 해제하지 않는 이유는 위 주석 참고 — xterm이 같은 글자를 두 번 보낸다.
         if (lastComposed) {
           if (data === lastComposed) return;
-          // 완성 글자에 확정 키(스페이스 등)가 붙어 함께 오는 경우 — 뒤에 붙은 것만 전달
           if (data.startsWith(lastComposed)) {
+            // 완성 글자 뒤에 붙어 온 잔여물 처리. xterm의 _finalizeComposition은 textarea를
+            // 끝까지 substring하므로, 이미 시작된 "다음 조합"의 첫 자모가 딸려 올 수 있다
+            // ("번" 확정 후 data="번ㅇ"). 그 자모의 진짜 값은 다음 compositionend가 보내므로
+            // 한글 잔여물은 버리고, 스페이스/엔터 같은 확정 키만 통과시킨다.
             const rest = data.slice(lastComposed.length);
-            if (rest) sendInput(rest);
+            if (rest && !HANGUL_ONLY_RE.test(rest)) sendInput(rest);
             return;
           }
         }
+        // 조합 경로 밖에서 도착한 "짧은 순수 한글" 청크 차단 — 소프트 키보드의 한글 타이핑은
+        // 반드시 compositionend(위에서 직접 전송)를 거치므로, 여기로 오는 1~2자 한글은
+        // xterm 에코 또는 IME의 유령 재삽입이다 (가만히 있어도 'ㅇ'이 찍히던 증상).
+        // 3자 이상은 붙여넣기일 수 있어 통과. 조합 IME 미사용 세션(물리 키보드)도 통과.
+        if (sawComposition && data.length <= 2 && HANGUL_ONLY_RE.test(data)) return;
       }
 
       // Check for mouse escape sequences (SGR 1006 mode)
