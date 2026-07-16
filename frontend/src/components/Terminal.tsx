@@ -496,9 +496,23 @@ export default function Terminal({
         }, DUP_GUARD_MS);
       }
     };
+    // 삼성 IME는 textarea에 누적된 텍스트를 내부 조합 상태와 동기화하려고 재삽입·재작성하고,
+    // xterm은 그 변화분을 diff(after.replace(before,""))로 추출해 입력으로 보낸다. IME가 앞부분을
+    // 재작성하면 diff 추출이 실패해 누적 텍스트 "전체"가 입력으로 나간다(라인 통째 복사 증상).
+    // xterm은 Enter 전까지 textarea를 비우지 않으므로, 입력이 멈추면 우리가 비워서
+    // 동기화·diff의 대상 자체를 없앤다. (조합 중/직후엔 건너뜀 — xterm의 pending diff와 충돌 방지)
+    let lastInputAt = 0;
+    const onAnyInput = () => { lastInputAt = Date.now(); };
+    let idleClearTimer: ReturnType<typeof setInterval> | null = null;
     if (isMobilePlatform && textarea) {
       textarea.addEventListener("compositionstart", onCompositionStart);
       textarea.addEventListener("compositionend", onCompositionEnd);
+      textarea.addEventListener("input", onAnyInput, { passive: true });
+      idleClearTimer = setInterval(() => {
+        if (!composingRef.current && textarea.value && Date.now() - lastInputAt > 300) {
+          textarea.value = "";
+        }
+      }, 500);
     }
 
     term.onData((data) => {
@@ -712,7 +726,10 @@ export default function Terminal({
       if (textarea) {
         textarea.removeEventListener("compositionstart", onCompositionStart);
         textarea.removeEventListener("compositionend", onCompositionEnd);
+        textarea.removeEventListener("input", onAnyInput);
       }
+      if (idleClearTimer) clearInterval(idleClearTimer);
+      if (compositionEndTimer) clearTimeout(compositionEndTimer);
       if (activityTimerRef.current) clearTimeout(activityTimerRef.current);
       cancelScheduledHardRefresh();
       const debugStore = (
