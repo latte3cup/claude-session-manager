@@ -114,16 +114,32 @@ function ContextMenu({
       if (event.key === "Escape") onClose();
     };
     const dismiss = () => onClose();
+    // resize로는 닫지 않고 화면 안으로 위치만 재보정한다. 터미널 리사이즈·모바일 소프트
+    // 키보드(visualViewport)가 window resize를 자주 튀겨서, 닫으면 메뉴가 계속 사라졌다.
+    const reposition = () => {
+      const el = menuRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setPos((prev) => {
+        let nx = prev.x;
+        let ny = prev.y;
+        if (nx + rect.width > window.innerWidth - 4) nx = window.innerWidth - rect.width - 4;
+        if (ny + rect.height > window.innerHeight - 4) ny = window.innerHeight - rect.height - 4;
+        if (nx < 4) nx = 4;
+        if (ny < 4) ny = 4;
+        return nx !== prev.x || ny !== prev.y ? { x: nx, y: ny } : prev;
+      });
+    };
 
     document.addEventListener("mousedown", handleMouseDown);
     document.addEventListener("keydown", handleKey);
     window.addEventListener("scroll", dismiss, true);
-    window.addEventListener("resize", dismiss);
+    window.addEventListener("resize", reposition);
     return () => {
       document.removeEventListener("mousedown", handleMouseDown);
       document.removeEventListener("keydown", handleKey);
       window.removeEventListener("scroll", dismiss, true);
-      window.removeEventListener("resize", dismiss);
+      window.removeEventListener("resize", reposition);
     };
   }, [onClose]);
 
