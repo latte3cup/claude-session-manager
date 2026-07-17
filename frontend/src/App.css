@@ -1,5 +1,6 @@
 @keyframes ccr-spin { to { transform: rotate(360deg); } }
 @keyframes ccr-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.42; } }
+@keyframes voicePulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.5); } 50% { box-shadow: 0 0 0 4px rgba(229, 72, 77, 0); } }
 
 :root {
   --font-ui: "IBM Plex Sans", "Segoe UI", "Noto Sans KR", sans-serif;

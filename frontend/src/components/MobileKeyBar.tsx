@@ -1,5 +1,6 @@
 import { useRef, useCallback } from "react";
 import { uiPx } from "../utils/uiScale";
+import VoiceInputButton from "./VoiceInputButton";
 
 interface MobileKeyBarProps {
   onKey: (data: string) => void;
@@ -254,7 +255,10 @@ export default function MobileKeyBar({ onKey }: MobileKeyBarProps) {
         {/* Left: 3 rows of shortcut buttons */}
         <div style={LEFT_COL}>
           <div style={ROW}>{ROW1.map(renderBtn)}</div>
-          <div style={ROW}>{ROW2.map(renderBtn)}</div>
+          <div style={ROW}>
+            {ROW2.map(renderBtn)}
+            <VoiceInputButton onText={(text) => onKey(text)} style={{ flex: 1.4 }} />
+          </div>
           <div style={ROW}>{ROW3.map(renderBtn)}</div>
         </div>
 
