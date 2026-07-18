@@ -501,13 +501,20 @@ export default function Terminal({
         try { rec.stop(); } catch { /* noop */ }
       }
     };
-    const onVoiceKeyUp = (ev: KeyboardEvent) => {
-      if (ev.key !== " ") return;
+    // 스페이스 뗌뿐 아니라 포커스 이탈(focusout)·창 blur(Alt+Tab 등)에도 녹음을 종료한다.
+    // continuous=true라 keyup이 안 오면 마이크가 무한 녹음되는 프라이버시 문제가 있어서다.
+    const cancelVoice = () => {
       spaceDown = false;
       clearHold();
       if (voiceActiveRef.current) stopVoice();
     };
-    innerRef.current?.addEventListener("keyup", onVoiceKeyUp);
+    const onVoiceKeyUp = (ev: KeyboardEvent) => {
+      if (ev.key === " ") cancelVoice();
+    };
+    const voiceEl = innerRef.current;
+    voiceEl?.addEventListener("keyup", onVoiceKeyUp);
+    voiceEl?.addEventListener("focusout", cancelVoice);
+    window.addEventListener("blur", cancelVoice);
 
     // Ctrl/Cmd + Up/Down → 터미널 스크롤백 스크롤. xterm 파이프라인에서 직접 가로채(return false)
     // PTY로는 보내지 않는다. (셸 기본값엔 거의 안 쓰이는 키라 충돌 위험 낮음)
@@ -522,8 +529,9 @@ export default function Terminal({
         }
         return false;
       }
-      // 스페이스바 홀드 감지 (지원 시 음성모드, 미지원 브라우저면 안내만)
-      if (e.key === " " && e.type === "keydown") {
+      // 스페이스바 홀드 감지 (지원 시 음성모드, 미지원 브라우저면 안내만).
+      // 조합키(Ctrl/Alt/Shift/Meta + Space, 예: 자동완성 Ctrl+Space)는 가로채지 않는다.
+      if (e.key === " " && e.type === "keydown" && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
         const supported = !!voiceCtorRef.current;
         if (supported && voiceActiveRef.current) return false; // 녹음 중이면 스페이스 삼킴
         if (e.repeat) return supported ? false : true;         // 지원 시 반복 스페이스 삼킴(스팸 방지)
@@ -839,7 +847,9 @@ export default function Terminal({
         textarea.removeEventListener("compositionend", onCompositionEnd);
         textarea.removeEventListener("input", onAnyInput);
       }
-      innerRef.current?.removeEventListener("keyup", onVoiceKeyUp);
+      voiceEl?.removeEventListener("keyup", onVoiceKeyUp);
+      voiceEl?.removeEventListener("focusout", cancelVoice);
+      window.removeEventListener("blur", cancelVoice);
       clearHold();
       if (voiceActiveRef.current) {
         // 콜백을 먼저 떼고 abort — abort가 발생시키는 onend에서 누적 텍스트가
