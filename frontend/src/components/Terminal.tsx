@@ -11,6 +11,29 @@ import GitPanel, { GitIcon } from "./GitPanel";
 import { getCliTone } from "../utils/cliTones";
 import { copyToClipboard } from "../utils/clipboard";
 
+/* ---- Web Speech (push-to-talk) minimal typings ---- */
+interface SpeechAlt { transcript: string }
+interface SpeechRes { isFinal: boolean; 0: SpeechAlt; length: number }
+interface SpeechResList { length: number; [i: number]: SpeechRes }
+interface SpeechEventLike { resultIndex: number; results: SpeechResList }
+interface SpeechRecLike {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: ((e: SpeechEventLike) => void) | null;
+  onerror: ((e: { error: string }) => void) | null;
+  onend: (() => void) | null;
+}
+type SpeechRecCtor = new () => SpeechRecLike;
+function getSpeechCtor(): SpeechRecCtor | null {
+  if (!window.isSecureContext) return null;
+  const w = window as unknown as { SpeechRecognition?: SpeechRecCtor; webkitSpeechRecognition?: SpeechRecCtor };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+}
+
 type MouseEventType = "press" | "release" | "move" | "drag" | "scroll";
 type MouseButton = 0 | 1 | 2 | 64 | 65;
 
@@ -192,6 +215,11 @@ export default function Terminal({
   const mouseDownButtonsRef = useRef(0);
   const composingRef = useRef(false);
   const sendInputRef = useRef<((data: string) => void) | null>(null);
+  // 스페이스바 홀드 push-to-talk (물리 키보드 전용, 음성인식은 보안컨텍스트+크롬 필요)
+  const voiceCtorRef = useRef<SpeechRecCtor | null>(null);
+  const voiceRecRef = useRef<SpeechRecLike | null>(null);
+  const voiceActiveRef = useRef(false);
+  const voiceFinalRef = useRef("");
   const sendResizeRef = useRef<((cols: number, rows: number) => void) | null>(null);
   const sendMouseRef = useRef<((data: MouseEventData) => void) | null>(null);
   const onActivityChangeRef = useRef(onActivityChange);
@@ -223,6 +251,8 @@ export default function Terminal({
   const isMobile = isMobileDevice;
   const [scrollThumb, setScrollThumb] = useState<{ top: number; height: number } | null>(null);
   const [scrollbarActive, setScrollbarActive] = useState(false);
+  const [voiceListening, setVoiceListening] = useState(false);
+  const [voiceUnsupported, setVoiceUnsupported] = useState(false);
 
 
   const refitAndRefresh = useCallback((restoreFocus = false) => {
@@ -420,6 +450,65 @@ export default function Terminal({
       },
     });
 
+    // 스페이스바 홀드 push-to-talk: 물리 키보드에서 스페이스를 "길게"(HOLD_MS) 누르면
+    // 음성 인식을 시작하고, 떼면 인식된 텍스트를 전송한다. 짧게 누르면 평범한 스페이스.
+    // auto-repeat(e.repeat)에 의존하지 않고 타이머로 홀드를 판정한다 — 키보드/브라우저에 따라
+    // auto-repeat가 안 오는 경우가 있어서다.
+    // (음성인식은 Web Speech API — 보안 컨텍스트 + 크롬 필요. WebView/평문http에선 미동작.)
+    const HOLD_MS = 350;
+    voiceCtorRef.current = getSpeechCtor();
+    let spaceDown = false;
+    let holdTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearHold = () => { if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; } };
+    const startVoice = () => {
+      const ctor = voiceCtorRef.current;
+      if (!ctor || voiceActiveRef.current) return;
+      const rec = new ctor();
+      rec.lang = "ko-KR";
+      rec.continuous = true;
+      rec.interimResults = true;
+      voiceFinalRef.current = "";
+      rec.onresult = (ev) => {
+        let finals = "";
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          const r = ev.results[i];
+          if (r.isFinal) finals += r[0].transcript;
+        }
+        if (finals) voiceFinalRef.current += finals;
+      };
+      rec.onerror = () => { /* 권한 거부 등 — onend에서 정리 */ };
+      rec.onend = () => {
+        voiceActiveRef.current = false;
+        setVoiceListening(false);
+        const text = voiceFinalRef.current.trim();
+        if (text) sendInputRef.current?.(text);
+      };
+      voiceRecRef.current = rec;
+      try {
+        rec.start();
+        voiceActiveRef.current = true;
+        setVoiceListening(true);
+        // 홀드 진입 직전 이미 입력된 스페이스 1개를 지운다(초기 keydown이 보낸 것).
+        sendInputRef.current?.("\x7f");
+      } catch {
+        voiceActiveRef.current = false;
+        setVoiceListening(false);
+      }
+    };
+    const stopVoice = () => {
+      const rec = voiceRecRef.current;
+      if (rec && voiceActiveRef.current) {
+        try { rec.stop(); } catch { /* noop */ }
+      }
+    };
+    const onVoiceKeyUp = (ev: KeyboardEvent) => {
+      if (ev.key !== " ") return;
+      spaceDown = false;
+      clearHold();
+      if (voiceActiveRef.current) stopVoice();
+    };
+    innerRef.current?.addEventListener("keyup", onVoiceKeyUp);
+
     // Ctrl/Cmd + Up/Down → 터미널 스크롤백 스크롤. xterm 파이프라인에서 직접 가로채(return false)
     // PTY로는 보내지 않는다. (셸 기본값엔 거의 안 쓰이는 키라 충돌 위험 낮음)
     const SCROLL_KEY_LINES = 3;
@@ -432,6 +521,28 @@ export default function Terminal({
           term.scrollLines(e.key === "ArrowUp" ? -SCROLL_KEY_LINES : SCROLL_KEY_LINES);
         }
         return false;
+      }
+      // 스페이스바 홀드 감지 (지원 시 음성모드, 미지원 브라우저면 안내만)
+      if (e.key === " " && e.type === "keydown") {
+        const supported = !!voiceCtorRef.current;
+        if (supported && voiceActiveRef.current) return false; // 녹음 중이면 스페이스 삼킴
+        if (e.repeat) return supported ? false : true;         // 지원 시 반복 스페이스 삼킴(스팸 방지)
+        if (!spaceDown) {
+          spaceDown = true;
+          clearHold();
+          holdTimer = setTimeout(() => {
+            holdTimer = null;
+            if (!spaceDown || composingRef.current) return;
+            if (voiceCtorRef.current) {
+              startVoice();
+            } else {
+              // 크롬이 아니거나 보안컨텍스트가 아니어서 음성인식 불가 — 원인 안내
+              setVoiceUnsupported(true);
+              setTimeout(() => setVoiceUnsupported(false), 2500);
+            }
+          }, HOLD_MS);
+        }
+        return true; // 첫 눌림의 스페이스 1개는 평범하게 통과(홀드 확정 시 지움)
       }
       return true;
     });
@@ -727,6 +838,12 @@ export default function Terminal({
         textarea.removeEventListener("compositionstart", onCompositionStart);
         textarea.removeEventListener("compositionend", onCompositionEnd);
         textarea.removeEventListener("input", onAnyInput);
+      }
+      innerRef.current?.removeEventListener("keyup", onVoiceKeyUp);
+      clearHold();
+      if (voiceActiveRef.current) {
+        try { voiceRecRef.current?.abort(); } catch { /* noop */ }
+        voiceActiveRef.current = false;
       }
       if (idleClearTimer) clearInterval(idleClearTimer);
       if (compositionEndTimer) clearTimeout(compositionEndTimer);
@@ -1204,6 +1321,57 @@ export default function Terminal({
         )}
         <div style={{ flex: 1, minHeight: 0, position: "relative" }} onContextMenu={handleContextMenu}>
           <div ref={innerRef} data-testid="terminal-xterm" style={{ width: "100%", height: "100%" }} />
+          {/* 스페이스바 홀드 음성 입력 표시 */}
+          {voiceListening && (
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                bottom: 24,
+                transform: "translateX(-50%)",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 16px",
+                borderRadius: 999,
+                background: "var(--danger, #e5484d)",
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 700,
+                zIndex: 40,
+                pointerEvents: "none",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
+                animation: "voicePulse 1s ease-in-out infinite",
+              }}
+            >
+              🎤 듣는 중… 스페이스 떼면 전송
+            </div>
+          )}
+          {voiceUnsupported && (
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                bottom: 24,
+                transform: "translateX(-50%)",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 16px",
+                borderRadius: 999,
+                background: "var(--surface-3, #333)",
+                color: "var(--text-primary, #eee)",
+                border: "1px solid var(--border-subtle)",
+                fontSize: 13,
+                fontWeight: 600,
+                zIndex: 40,
+                pointerEvents: "none",
+                textAlign: "center",
+              }}
+            >
+              ⚠ 이 브라우저는 음성 입력 미지원 — 크롬으로 접속하세요
+            </div>
+          )}
           {/* Mobile custom scrollbar */}
           {scrollThumb && isMobile() && (
             <div
