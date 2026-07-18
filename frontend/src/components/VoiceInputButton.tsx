@@ -92,8 +92,14 @@ export default function VoiceInputButton({ onText, lang = "ko-KR", style }: Prop
     }
     ctorRef.current = ctor;
     return () => {
-      if (recRef.current && activeRef.current) {
-        try { recRef.current.abort(); } catch { /* noop */ }
+      const rec = recRef.current;
+      if (rec && activeRef.current) {
+        // 콜백을 먼저 떼고 abort — abort가 발생시키는 onend에서 누적 텍스트가
+        // onText로 전송되어(언마운트 후 유령 입력) 터미널에 들어가는 걸 막는다.
+        rec.onresult = null;
+        rec.onerror = null;
+        rec.onend = null;
+        try { rec.abort(); } catch { /* noop */ }
       }
     };
   }, []);
@@ -168,7 +174,7 @@ export default function VoiceInputButton({ onText, lang = "ko-KR", style }: Prop
     userSelect: "none",
     touchAction: "none",
     opacity: blocked ? 0.55 : 1,
-    animation: listening ? "voicePulse 1s ease-in-out infinite" : undefined,
+    animation: listening ? "voice-pulse 1s ease-in-out infinite" : undefined,
     ...style,
   };
 

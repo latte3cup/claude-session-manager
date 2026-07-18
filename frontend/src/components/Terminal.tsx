@@ -842,7 +842,11 @@ export default function Terminal({
       innerRef.current?.removeEventListener("keyup", onVoiceKeyUp);
       clearHold();
       if (voiceActiveRef.current) {
-        try { voiceRecRef.current?.abort(); } catch { /* noop */ }
+        // 콜백을 먼저 떼고 abort — abort가 발생시키는 onend에서 누적 텍스트가
+        // sendInput으로 전송되어(언마운트 후 유령 입력) PTY에 들어가는 걸 막는다.
+        const rec = voiceRecRef.current;
+        if (rec) { rec.onresult = null; rec.onerror = null; rec.onend = null; }
+        try { rec?.abort(); } catch { /* noop */ }
         voiceActiveRef.current = false;
       }
       if (idleClearTimer) clearInterval(idleClearTimer);
@@ -1341,7 +1345,7 @@ export default function Terminal({
                 zIndex: 40,
                 pointerEvents: "none",
                 boxShadow: "0 2px 12px rgba(0,0,0,0.35)",
-                animation: "voicePulse 1s ease-in-out infinite",
+                animation: "voice-pulse 1s ease-in-out infinite",
               }}
             >
               🎤 듣는 중… 스페이스 떼면 전송
