@@ -12,6 +12,11 @@ logger = logging.getLogger(__name__)
 
 _executor = ThreadPoolExecutor(max_workers=20)
 
+# 재접속 시 새 클라이언트에게 복원해줄 최근 출력 보관량.
+# 8KB였을 때는 TUI(claude 등)의 ANSI 이스케이프가 대부분을 차지해 화면 한 판도 안 남았다.
+# 128KB면 스크롤백이 실용적으로 살아나면서, 재접속 시 전송량도 감당 가능한 수준.
+OUTPUT_BUFFER_LIMIT = 128 * 1024
+
 # ---------------------------------------------------------------------------
 # Platform-specific PTY adapters
 # ---------------------------------------------------------------------------
@@ -174,10 +179,10 @@ class PtyInstance:
             return None
 
     def append_output(self, data: str) -> None:
-        """최근 출력을 버퍼에 저장 (최대 8KB)."""
+        """최근 출력을 버퍼에 저장 (최대 OUTPUT_BUFFER_LIMIT)."""
         self._output_buffer += data
-        if len(self._output_buffer) > 8192:
-            self._output_buffer = self._output_buffer[-8192:]
+        if len(self._output_buffer) > OUTPUT_BUFFER_LIMIT:
+            self._output_buffer = self._output_buffer[-OUTPUT_BUFFER_LIMIT:]
 
     def get_output_buffer(self) -> str:
         return self._output_buffer

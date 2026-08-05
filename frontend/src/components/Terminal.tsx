@@ -225,7 +225,11 @@ export default function Terminal({
   const [scrollbarActive, setScrollbarActive] = useState(false);
 
 
-  const refitAndRefresh = useCallback((restoreFocus = false) => {
+  // force=true: 로컬 cols/rows가 그대로여도 PTY에 크기를 다시 통보한다.
+  // 다른 기기(태블릿 등)가 같은 세션에 접속하면 그쪽 크기로 PTY가 바뀌는데,
+  // 이쪽 창은 크기가 안 변했으니 dimsChanged=false가 되어 영영 되돌리지 못한다.
+  // 세션이 다시 보이게 되는 순간에만 1회 강제해 내 크기를 되찾는다.
+  const refitAndRefresh = useCallback((restoreFocus = false, force = false) => {
     const term = termRef.current;
     const fitAddon = fitAddonRef.current;
     const container = innerRef.current;
@@ -278,6 +282,10 @@ export default function Terminal({
       try { term.clearTextureAtlas(); } catch { /* ignore */ }
       try { term.refresh(0, Math.max(term.rows - 1, 0)); } catch { /* ignore */ }
       sendResizeRef.current?.(term.cols, term.rows);
+    } else if (force) {
+      // 크기는 그대로지만 다른 기기가 PTY를 바꿨을 수 있으므로 내 크기를 재통보만 한다.
+      // (로컬 재렌더는 필요 없으니 clearTextureAtlas/refresh는 생략 — 불필요한 깜빡임 방지)
+      sendResizeRef.current?.(term.cols, term.rows);
     }
 
     if (restoreFocus && visibleRef.current && focusedRef.current) {
@@ -291,7 +299,7 @@ export default function Terminal({
     refreshFramesRef.current = [];
   }, []);
 
-  const scheduleHardRefresh = useCallback((restoreFocus = false) => {
+  const scheduleHardRefresh = useCallback((restoreFocus = false, force = false) => {
     if (!visible || !termRef.current || !fitAddonRef.current) return;
 
     cancelScheduledHardRefresh();
@@ -299,7 +307,7 @@ export default function Terminal({
 
     const firstFrame = requestAnimationFrame(() => {
       const secondFrame = requestAnimationFrame(() => {
-        refitAndRefresh(restoreFocus);
+        refitAndRefresh(restoreFocus, force);
         refreshFramesRef.current = [];
       });
       frameIds.push(secondFrame);
@@ -819,9 +827,19 @@ export default function Terminal({
     }
   }, [explorerOpen, explorerWidth, gitPanelOpen, gitPanelWidth, refitAndRefresh, visible]);
 
+  // 이 effect는 전환 한 번에 여러 번 발동한다(visible 변경 + refreshNonce 증가 +
+  // scheduleHardRefresh 정체성 변경). 그래서 "숨김→보임"으로 실제 전환된 첫 호출에만
+  // force를 켜서 PTY 크기 재통보를 정확히 1회로 제한한다.
+  const wasVisibleRef = useRef(visible);
   useEffect(() => {
-    if (!visible || !termRef.current || !fitAddonRef.current) return;
-    scheduleHardRefresh(true);
+    if (!visible) {
+      wasVisibleRef.current = false;
+      return;
+    }
+    if (!termRef.current || !fitAddonRef.current) return;
+    const justBecameVisible = !wasVisibleRef.current;
+    wasVisibleRef.current = true;
+    scheduleHardRefresh(true, justBecameVisible);
   }, [refreshNonce, scheduleHardRefresh, visible]);
 
   // Mobile custom scrollbar — track viewport scroll position
