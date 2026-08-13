@@ -327,6 +327,11 @@ export default function Terminal({
     url: wsUrl,
     onMessage: (msg) => {
       if (msg.type === "output" && termRef.current) {
+        // 재접속 복원 버퍼(replay)는 이어붙이면 직전 기록이 중복된다.
+        // 화면을 리셋해 서버 버퍼로 교체한 뒤 기록한다. (라이브 출력은 그대로 이어붙임)
+        if (msg.replay) {
+          try { termRef.current.reset(); } catch { /* ignore */ }
+        }
         termRef.current.write(msg.data);
 
         // Only track activity after user pressed Enter
@@ -376,6 +381,9 @@ export default function Terminal({
       fontWeight: "400",
       theme: getTerminalPalette(themeRef.current),
       allowProposedApi: true,
+      // 기본값 1000줄은 긴 대화에서 위쪽이 잘려 스크롤이 안 올라간다.
+      // 백엔드 복원 버퍼(128KB)를 실제로 스크롤해서 볼 수 있도록 넉넉히 잡는다.
+      scrollback: 8000,
     });
 
     const fitAddon = new FitAddon();

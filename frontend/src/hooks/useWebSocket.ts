@@ -3,6 +3,9 @@ import { useRef, useEffect, useCallback, useState } from "react";
 interface WsMessage {
   type: "output" | "status";
   data: string;
+  // 재접속 시 서버가 보내는 "현재 화면 복원용 버퍼" 표시.
+  // 이 메시지는 이어붙이지 않고 화면을 리셋한 뒤 기록해야 중복이 안 생긴다.
+  replay?: boolean;
 }
 
 interface MouseEventData {

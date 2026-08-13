@@ -111,9 +111,11 @@ async def handle_terminal_ws(ws: WebSocket, session_id: str) -> None:
         pass
 
     # 최근 출력 버퍼 전송 (새 클라이언트에게 현재 화면 복원)
+    # replay=True로 표시해 클라이언트가 이어붙이지 않고 화면을 교체하게 한다.
+    # (표시가 없으면 재접속마다 버퍼가 기존 화면 위에 덧붙어 직전 기록이 중복된다.)
     buffer = instance.get_output_buffer()
     if buffer:
-        await ws.send_json({"type": "output", "data": buffer})
+        await ws.send_json({"type": "output", "data": buffer, "replay": True})
 
     # ws_to_pty 태스크 생성 (입력: 이 클라이언트 → PTY)
     input_task = asyncio.create_task(ws_to_pty(ws, instance))
