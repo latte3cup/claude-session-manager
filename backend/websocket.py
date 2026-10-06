@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from contextlib import suppress
 
 from fastapi import WebSocket, WebSocketDisconnect
 
@@ -9,139 +10,225 @@ from .pty_manager import PtyInstance, pty_manager
 
 logger = logging.getLogger(__name__)
 
-# 세션당 활성 WebSocket 연결 추적: session_id -> list[(WebSocket, list[Task])]
-_active_connections: dict[str, list[tuple[WebSocket, list[asyncio.Task]]]] = {}
+OUTPUT_BATCH_SECONDS = 0.025
+SEND_TIMEOUT_SECONDS = 5.0
+ACTIVITY_ECHO_SECONDS = 0.5
+ACTIVITY_QUIET_SECONDS = 3.0
 
-# 세션당 broadcast 태스크 (PTY → 모든 WebSocket)
-_broadcast_tasks: dict[str, asyncio.Task] = {}
+
+class TerminalStream:
+    """One PTY reader and bounded history, shared by all clients.
+
+    Writers read the existing 128K-character history using cursors. There is no
+    per-client output queue that grows while a client is hidden or slow.
+    """
+
+    def __init__(self, instance: PtyInstance) -> None:
+        self.instance = instance
+        self.clients: set[TerminalClient] = set()
+        self.closed = False
+        self.activity = "idle"
+        self.activity_revision = 0
+        self.submitted_at: float | None = None
+        self.activity_timer: asyncio.TimerHandle | None = None
+        self.task: asyncio.Task | None = None
+
+    def set_activity(self, activity: str) -> None:
+        if self.activity == activity:
+            return
+        self.activity = activity
+        self.activity_revision += 1
+        for client in self.clients:
+            if client.protocol_v2:
+                client.changed.set()
+
+    def observe_input(self, data: str) -> None:
+        if "\r" in data or "\n" in data:
+            self.submitted_at = asyncio.get_running_loop().time()
+            if self.activity_timer:
+                self.activity_timer.cancel()
+                self.activity_timer = None
+            self.set_activity("idle")
+
+    def observe_output(self, data: str) -> None:
+        self.instance.append_output(data)
+        for client in self.clients:
+            if client.output_enabled:
+                client.changed.set()
+        if self.submitted_at is not None:
+            loop = asyncio.get_running_loop()
+            if loop.time() - self.submitted_at > ACTIVITY_ECHO_SECONDS:
+                self.set_activity("processing")
+            if self.activity_timer:
+                self.activity_timer.cancel()
+            self.activity_timer = loop.call_later(ACTIVITY_QUIET_SECONDS, self.finish_activity)
+
+    def finish_activity(self) -> None:
+        # Preserve the existing heuristic: output after Enter, then 3s quiet.
+        # This is an activity hint, not an authoritative CLI completion event.
+        self.activity_timer = None
+        self.submitted_at = None
+        if self.activity == "processing":
+            self.set_activity("done")
+
+    async def run(self) -> None:
+        try:
+            while True:
+                # Never cancel a read to flush: the executor's blocking PTY
+                # read would keep running and compete with the next read.
+                data = await pty_manager.async_read(self.instance)
+                if data is None:
+                    if pty_manager.get(self.instance.session_id) is self.instance:
+                        pty_manager.remove(self.instance.session_id)
+                        with suppress(Exception):
+                            await update_session(self.instance.session_id, status="closed")
+                    break
+                if data:
+                    self.observe_output(data)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("PTY reader failed for %s", self.instance.session_id)
+        finally:
+            if self.activity_timer:
+                self.activity_timer.cancel()
+            self.closed = True
+            for client in self.clients:
+                client.changed.set()
+            if _streams.get(self.instance.session_id) is self:
+                _streams.pop(self.instance.session_id, None)
 
 
-async def pty_to_ws_broadcast(session_id: str, instance: PtyInstance) -> None:
-    """PTY 출력을 해당 세션의 모든 WebSocket에 broadcast."""
-    try:
+class TerminalClient:
+    def __init__(self, ws: WebSocket, stream: TerminalStream, protocol_v2: bool) -> None:
+        self.ws = ws
+        self.stream = stream
+        self.protocol_v2 = protocol_v2
+        # Legacy clients receive replay/live output. V2 starts with status only
+        # so a hidden terminal never downloads an unnecessary initial replay.
+        self.output_enabled = not protocol_v2
+        self.offset: int | None = None
+        self.stream_id: str | None = None
+        self.activity_revision = -1
+        self.lock = asyncio.Lock()
+        self.changed = asyncio.Event()
+        self.changed.set()
+
+    async def send(self, message: dict) -> None:
+        await asyncio.wait_for(self.ws.send_json(message), SEND_TIMEOUT_SECONDS)
+
+    async def write(self) -> None:
         while True:
-            data = await pty_manager.async_read(instance)
-            if data is None:
-                logger.info(f"[PTY->WS] {session_id}: PTY dead, cleaning up")
-                pty_manager.remove(session_id)
-                try:
-                    await update_session(session_id, status="closed")
-                except Exception:
-                    pass
-                # 모든 연결에 closed 전송
-                for ws, _ in _active_connections.get(session_id, []):
-                    try:
-                        await ws.send_json({"type": "status", "data": "closed"})
-                        await ws.close(code=1000, reason="Session closed")
-                    except Exception:
-                        pass
-                break
-            if data:
-                instance.append_output(data)
-                dead = []
-                conns = _active_connections.get(session_id, [])
-                snapshot = list(conns)
-                for i, (ws, _) in enumerate(snapshot):
-                    try:
-                        await ws.send_json({"type": "output", "data": data})
-                    except Exception:
-                        dead.append(i)
-                # 죽은 연결 제거 (역순으로)
-                for i in reversed(dead):
-                    conns.pop(i)
-    except asyncio.CancelledError:
-        pass
-    except Exception as e:
-        logger.error(f"[PTY->WS broadcast] {session_id}: {type(e).__name__}: {e}")
+            await self.changed.wait()
+            self.changed.clear()
+            # Independent of blocking PTY reads; slow devices do not block the
+            # other writers. One burst produces at most one frame per 25ms.
+            await asyncio.sleep(OUTPUT_BATCH_SECONDS)
+            async with self.lock:
+                instance = self.stream.instance
+                # A previously displayed terminal needs its final tail before
+                # the PTY/history goes away, even when it is currently hidden.
+                if self.output_enabled or (self.stream.closed and self.offset is not None):
+                    data, replay, offset = instance.output_since(self.offset, self.stream_id)
+                    if data or replay:
+                        await self.send({
+                            "type": "output", "data": data, "replay": replay,
+                            "offset": offset, "stream_id": instance.stream_id,
+                        })
+                        self.offset = offset
+                        self.stream_id = instance.stream_id
+                if self.protocol_v2 and self.activity_revision != self.stream.activity_revision:
+                    revision = self.stream.activity_revision
+                    await self.send({
+                        "type": "activity", "data": self.stream.activity,
+                        "replay": self.activity_revision == -1,
+                    })
+                    self.activity_revision = revision
+                if self.stream.closed:
+                    await self.send({"type": "status", "data": "closed"})
+                    await asyncio.wait_for(self.ws.close(code=1000, reason="Session closed"), SEND_TIMEOUT_SECONDS)
+                    return
 
-
-async def ws_to_pty(ws: WebSocket, instance: PtyInstance) -> None:
-    """WebSocket 입력을 PTY로 전달."""
-    try:
+    async def read(self) -> None:
+        instance = self.stream.instance
         while True:
-            raw = await ws.receive_text()
+            raw = await self.ws.receive_text()
             try:
                 msg = json.loads(raw)
             except json.JSONDecodeError:
-                logger.warning(f"ws_to_pty: invalid JSON from {instance.session_id}")
                 continue
+            if not isinstance(msg, dict):
+                continue
+            kind, data = msg.get("type"), msg.get("data")
+            if kind == "subscribe" and isinstance(data, dict):
+                if not isinstance(data.get("output"), bool):
+                    continue
+                async with self.lock:
+                    self.protocol_v2 = True
+                    self.output_enabled = data["output"]
+                    if self.output_enabled or "after" in data:
+                        offset = data.get("after")
+                        self.offset = offset if type(offset) is int and offset >= 0 else None
+                        self.stream_id = data.get("stream_id")
+                    self.changed.set()
+            elif kind == "input" and isinstance(data, str):
+                instance.write(data)
+                self.stream.observe_input(data)
+            elif kind == "resize" and isinstance(data, dict):
+                cols, rows = data.get("cols"), data.get("rows")
+                if type(cols) is int and type(rows) is int and 1 <= cols <= 500 and 1 <= rows <= 200:
+                    instance.resize(cols, rows)
+            elif kind == "mouse" and isinstance(data, dict):
+                mouse_seq = instance.encode_mouse_event(data)
+                if mouse_seq:
+                    instance.write(mouse_seq)
 
-            msg_type = msg.get("type")
-            msg_data = msg.get("data")
 
-            if msg_type == "input":
-                if isinstance(msg_data, str):
-                    instance.write(msg_data)
-            elif msg_type == "resize":
-                if isinstance(msg_data, dict):
-                    cols = msg_data.get("cols")
-                    rows = msg_data.get("rows")
-                    if (
-                        isinstance(cols, int) and isinstance(rows, int)
-                        and 1 <= cols <= 500 and 1 <= rows <= 200
-                    ):
-                        instance.resize(cols, rows)
-            elif msg_type == "mouse":
-                if isinstance(msg_data, dict):
-                    mouse_seq = instance.encode_mouse_event(msg_data)
-                    if mouse_seq:
-                        instance.write(mouse_seq)
-    except WebSocketDisconnect:
-        logger.info(f"WebSocket disconnected (ws_to_pty) for session {instance.session_id}")
-    except Exception as e:
-        logger.error(f"ws_to_pty error for {instance.session_id}: {e}")
+_streams: dict[str, TerminalStream] = {}
 
 
 async def handle_terminal_ws(ws: WebSocket, session_id: str) -> None:
-    """WebSocket ↔ PTY 양방향 중계. 동시 접속 허용."""
     await ws.accept()
-
     instance = pty_manager.get(session_id)
     if not instance:
         await ws.send_json({"type": "status", "data": "not_found"})
         await ws.close(code=4404, reason="Session not found")
         return
 
-    logger.info(f"WebSocket connected for session {session_id}")
-
-    # last_accessed 업데이트
-    try:
+    with suppress(Exception):
         await update_last_accessed(session_id)
-    except Exception:
-        pass
 
-    # 최근 출력 버퍼 전송 (새 클라이언트에게 현재 화면 복원)
-    # replay=True로 표시해 클라이언트가 이어붙이지 않고 화면을 교체하게 한다.
-    # (표시가 없으면 재접속마다 버퍼가 기존 화면 위에 덧붙어 직전 기록이 중복된다.)
-    buffer = instance.get_output_buffer()
-    if buffer:
-        await ws.send_json({"type": "output", "data": buffer, "replay": True})
-
-    # ws_to_pty 태스크 생성 (입력: 이 클라이언트 → PTY)
-    input_task = asyncio.create_task(ws_to_pty(ws, instance))
-
-    # 연결 목록에 추가
-    if session_id not in _active_connections:
-        _active_connections[session_id] = []
-    _active_connections[session_id].append((ws, [input_task]))
-
-    # broadcast 태스크가 없거나 완료됐으면 시작
-    if session_id not in _broadcast_tasks or _broadcast_tasks[session_id].done():
-        _broadcast_tasks[session_id] = asyncio.create_task(
-            pty_to_ws_broadcast(session_id, instance)
-        )
-
-    # 이 클라이언트의 입력 태스크 완료 대기
+    # No await between lookup and registration: simultaneous clients share one
+    # reader. Identity prevents a resumed PTY from reusing an old stream.
+    stream = _streams.get(session_id)
+    if stream is None or stream.instance is not instance or stream.closed:
+        stream = TerminalStream(instance)
+        _streams[session_id] = stream
+        stream.task = asyncio.create_task(stream.run())
+    client = TerminalClient(ws, stream, ws.query_params.get("protocol") == "2")
+    stream.clients.add(client)
+    tasks = [asyncio.create_task(client.read()), asyncio.create_task(client.write())]
     try:
-        await input_task
-    except Exception:
+        done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        for task in done:
+            task.result()
+    except (WebSocketDisconnect, asyncio.TimeoutError):
         pass
+    except Exception:
+        logger.exception("Terminal connection failed for %s", session_id)
     finally:
-        # 이 연결을 목록에서 제거
-        conns = _active_connections.get(session_id, [])
-        _active_connections[session_id] = [(w, t) for w, t in conns if w is not ws]
-        if not _active_connections.get(session_id):
-            _active_connections.pop(session_id, None)
+        stream.clients.discard(client)
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        with suppress(Exception):
+            await asyncio.wait_for(ws.close(), SEND_TIMEOUT_SECONDS)
+    # The reader retains bounded history/activity without clients, until exit.
 
-    # PTY는 종료하지 않음 - WS 재연결 가능
-    logger.info(f"WebSocket handler finished for session {session_id} (PTY kept alive)")
+
+async def stop_terminal_streams() -> None:
+    tasks = [stream.task for stream in _streams.values() if stream.task]
+    for task in tasks:
+        task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
+    _streams.clear()

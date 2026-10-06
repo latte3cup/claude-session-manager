@@ -19,6 +19,7 @@ import {
   sendBrowserNotification,
 } from "./utils/notify";
 import { apiFetch, onAuthExpired, readErrorDetail } from "./utils/api";
+import { createSerializedRefresh, startAdaptiveProjectPolling } from "./utils/projectRefresh";
 import { copyToClipboard } from "./utils/clipboard";
 import {
   collectSessionIds,
@@ -258,7 +259,7 @@ export default function App() {
   const [desktopPreferencesState, setDesktopPreferencesState] = useState<DesktopPreferences | null>(null);
   const [desktopVersion, setDesktopVersion] = useState<string | null>(null);
   const [latestUpdateManifest, setLatestUpdateManifest] = useState<UpdateManifest | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const projectsRequestEpochRef = useRef(0);
   const settingsRef = useRef<HTMLDivElement>(null);
   const workbenchAreaRef = useRef<HTMLElement>(null);
   const draggingRef = useRef(false);
@@ -494,6 +495,7 @@ export default function App() {
   }, [bumpSessionRefresh, ensurePersistentTerminals, isMobileViewport]);
 
   const resetClientState = useCallback((isAuthenticated: boolean) => {
+    projectsRequestEpochRef.current += 1;
     localStorage.removeItem("token");
     launchContextHandledRef.current = false;
     lastPresencePayloadRef.current = "";
@@ -522,10 +524,14 @@ export default function App() {
     clearLayoutSaveTimer();
   }, [clearLayoutSaveTimer]);
 
-  const fetchProjects = useCallback(async () => {
+  const fetchProjects = useMemo(() => createSerializedRefresh(async () => {
     if (authenticated !== true) return undefined;
+    const epoch = projectsRequestEpochRef.current;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
     try {
-      const response = await apiFetch("/api/projects");
+      const response = await apiFetch("/api/projects", { signal: controller.signal });
+      if (epoch !== projectsRequestEpochRef.current) return undefined;
       if (response.status === 401) {
         resetClientState(false);
         return undefined;
@@ -534,14 +540,17 @@ export default function App() {
         return undefined;
       }
       const data: Project[] = await response.json();
+      if (epoch !== projectsRequestEpochRef.current) return undefined;
       setAuthenticated(true);
       setProjects(data);
       setProjectsLoadedOnce(true);
       return data;
     } catch {
       return undefined;
+    } finally {
+      clearTimeout(timeout);
     }
-  }, [authenticated, resetClientState]);
+  }), [authenticated, resetClientState]);
 
   const flushPendingLayoutSave = useCallback(async () => {
     if (savingLayoutRef.current) {
@@ -719,12 +728,12 @@ export default function App() {
 
   useEffect(() => {
     if (authenticated !== true) return;
-    void fetchProjects();
-    pollRef.current = setInterval(() => {
-      void fetchProjects();
-    }, 5000);
+    const stop = startAdaptiveProjectPolling(() => fetchProjects(false));
+    const refresh = () => { void fetchProjects(); };
+    window.addEventListener("remote-code-projects-changed", refresh);
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
+      stop();
+      window.removeEventListener("remote-code-projects-changed", refresh);
     };
   }, [authenticated, fetchProjects]);
 
@@ -981,8 +990,8 @@ export default function App() {
     }
   }, [clearOpenAloneSnapshot, focusedSessionId, removePersistentTerminals]);
 
-  const handleActivityChange = useCallback((sessionId: string, state: ActivityState) => {
-    const isViewing = visibleSessionIdsRef.current.includes(sessionId);
+  const handleActivityChange = useCallback((sessionId: string, state: ActivityState, replay = false) => {
+    const isViewing = !document.hidden && visibleSessionIdsRef.current.includes(sessionId);
 
     setSessionActivity((prev) => {
       if (state === "done" && isViewing) {
@@ -991,7 +1000,7 @@ export default function App() {
       return { ...prev, [sessionId]: state };
     });
 
-    if (state === "done" && !isViewing) {
+    if (state === "done" && !isViewing && !replay) {
       const session = sessionsRef.current.find((item) => item.id === sessionId);
       const name = session?.name || "Session";
       playNotificationSound();
