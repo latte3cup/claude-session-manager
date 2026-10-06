@@ -1,11 +1,13 @@
 import { useRef, useEffect, useCallback, useState } from "react";
 
 interface WsMessage {
-  type: "output" | "status";
+  type: "output" | "status" | "activity";
   data: string;
   // 재접속 시 서버가 보내는 "현재 화면 복원용 버퍼" 표시.
   // 이 메시지는 이어붙이지 않고 화면을 리셋한 뒤 기록해야 중복이 안 생긴다.
   replay?: boolean;
+  offset?: number;
+  stream_id?: string;
 }
 
 interface MouseEventData {
@@ -36,6 +38,7 @@ interface UseWebSocketOptions {
   onClose?: () => void;
   onError?: () => void;
   autoReconnect?: boolean;
+  outputEnabled?: boolean;
 }
 
 const MAX_RECONNECT_DELAY = 30000;
@@ -48,6 +51,7 @@ export function useWebSocket({
   onClose,
   onError,
   autoReconnect = true,
+  outputEnabled = true,
 }: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const onMessageRef = useRef(onMessage);
@@ -55,7 +59,8 @@ export function useWebSocket({
   const onErrorRef = useRef(onError);
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const unmountedRef = useRef(false);
+  const outputEnabledRef = useRef(outputEnabled);
+  const outputCursorRef = useRef<{ after: number; stream_id: string } | null>(null);
   const permanentStatusRef = useRef<ExtendedConnectionStatus | null>(null);
   const pendingResizeRef = useRef<{ cols: number; rows: number } | null>(null);
   const [status, setStatus] = useState<ExtendedConnectionStatus>("disconnected");
@@ -63,9 +68,27 @@ export function useWebSocket({
   onMessageRef.current = onMessage;
   onCloseRef.current = onClose;
   onErrorRef.current = onError;
+  outputEnabledRef.current = outputEnabled;
+
+  const subscribeOutput = useCallback(() => {
+    const ws = wsRef.current;
+    if (ws?.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({
+      type: "subscribe",
+      data: { output: outputEnabledRef.current, ...outputCursorRef.current },
+    }));
+    if (outputEnabledRef.current && pendingResizeRef.current) {
+      ws.send(JSON.stringify({ type: "resize", data: pendingResizeRef.current }));
+      pendingResizeRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => { subscribeOutput(); }, [outputEnabled, subscribeOutput]);
 
   useEffect(() => {
-    unmountedRef.current = false;
+    let disposed = false;
+    outputCursorRef.current = null;
+    permanentStatusRef.current = null;
 
     if (!url) {
       setStatus("disconnected");
@@ -73,7 +96,8 @@ export function useWebSocket({
       return;
     }
 
-    const socketUrl = url;
+    const socketUrl = new URL(url);
+    socketUrl.searchParams.set("protocol", "2");
 
     function clearReconnectTimer() {
       if (reconnectTimerRef.current) {
@@ -83,7 +107,7 @@ export function useWebSocket({
     }
 
     function connect() {
-      if (unmountedRef.current) return;
+      if (disposed) return;
       if (permanentStatusRef.current && permanentStatusRef.current !== "disconnected") return;
 
       clearReconnectTimer();
@@ -101,25 +125,22 @@ export function useWebSocket({
       wsRef.current = ws;
 
       ws.onopen = () => {
-        if (unmountedRef.current) return;
+        if (disposed || wsRef.current !== ws) return;
         reconnectAttemptRef.current = 0;
         permanentStatusRef.current = null;
         setStatus("connected");
-        // Flush any pending resize that was queued before connection
-        if (pendingResizeRef.current) {
-          const { cols, rows } = pendingResizeRef.current;
-          ws.send(JSON.stringify({ type: "resize", data: { cols, rows } }));
-          pendingResizeRef.current = null;
-        }
+        subscribeOutput();
       };
 
       ws.onmessage = (event) => {
+        if (disposed || wsRef.current !== ws) return;
         try {
           const msg: WsMessage = JSON.parse(event.data);
           if (msg.type === "status") {
             if (msg.data === "closed") {
               permanentStatusRef.current = "closed";
               setStatus("closed");
+              window.dispatchEvent(new Event("remote-code-projects-changed"));
             } else if (msg.data === "taken_over") {
               permanentStatusRef.current = "taken_over";
               setStatus("taken_over");
@@ -129,13 +150,18 @@ export function useWebSocket({
             }
           }
           onMessageRef.current(msg);
+          // Advance only after the terminal accepted the output. Server offsets
+          // are opaque: JS string.length does not count Python characters.
+          if (msg.type === "output" && Number.isSafeInteger(msg.offset) && typeof msg.stream_id === "string") {
+            outputCursorRef.current = { after: msg.offset!, stream_id: msg.stream_id };
+          }
         } catch {
           // Ignore malformed messages.
         }
       };
 
       ws.onclose = (event) => {
-        if (unmountedRef.current) return;
+        if (disposed || wsRef.current !== ws) return;
         if (wsRef.current === ws) {
           wsRef.current = null;
         }
@@ -170,6 +196,7 @@ export function useWebSocket({
       };
 
       ws.onerror = () => {
+        if (disposed || wsRef.current !== ws) return;
         onErrorRef.current?.();
       };
     }
@@ -195,7 +222,7 @@ export function useWebSocket({
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      unmountedRef.current = true;
+      disposed = true;
       permanentStatusRef.current = null;
       clearReconnectTimer();
       if (wsRef.current) {
@@ -203,7 +230,7 @@ export function useWebSocket({
         wsRef.current = null;
       }
     };
-  }, [url, autoReconnect]);
+  }, [url, autoReconnect, subscribeOutput]);
 
   const sendInput = useCallback((data: string) => {
     const ws = wsRef.current;
@@ -214,7 +241,7 @@ export function useWebSocket({
 
   const sendResize = useCallback((cols: number, rows: number) => {
     const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (ws && ws.readyState === WebSocket.OPEN && outputEnabledRef.current) {
       ws.send(JSON.stringify({ type: "resize", data: { cols, rows } }));
     } else {
       // Queue resize for when connection opens

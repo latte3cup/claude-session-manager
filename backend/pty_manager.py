@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import sys
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Optional
@@ -14,7 +15,7 @@ _executor = ThreadPoolExecutor(max_workers=20)
 
 # 재접속 시 새 클라이언트에게 복원해줄 최근 출력 보관량.
 # 8KB였을 때는 TUI(claude 등)의 ANSI 이스케이프가 대부분을 차지해 화면 한 판도 안 남았다.
-# 128KB면 스크롤백이 실용적으로 살아나면서, 재접속 시 전송량도 감당 가능한 수준.
+# This is a character limit (Python str), not a byte limit.
 OUTPUT_BUFFER_LIMIT = 128 * 1024
 
 # ---------------------------------------------------------------------------
@@ -153,6 +154,8 @@ class PtyInstance:
     work_path: str
     _closed: bool = field(default=False, init=False)
     _output_buffer: str = field(default="", init=False)
+    output_offset: int = field(default=0, init=False)
+    stream_id: str = field(default_factory=lambda: uuid.uuid4().hex, init=False)
 
     def read(self, length: int = 4096) -> Optional[str]:
         """Blocking read. Returns data, empty string (transient), or None (dead)."""
@@ -181,11 +184,23 @@ class PtyInstance:
     def append_output(self, data: str) -> None:
         """최근 출력을 버퍼에 저장 (최대 OUTPUT_BUFFER_LIMIT)."""
         self._output_buffer += data
+        self.output_offset += len(data)
         if len(self._output_buffer) > OUTPUT_BUFFER_LIMIT:
             self._output_buffer = self._output_buffer[-OUTPUT_BUFFER_LIMIT:]
 
     def get_output_buffer(self) -> str:
         return self._output_buffer
+
+    def output_since(self, offset: int | None, stream_id: str | None) -> tuple[str, bool, int]:
+        """Missing text, reset flag, and opaque cursor from one bounded snapshot.
+
+        Cursors count Python characters; clients echo them instead of computing
+        them using JavaScript UTF-16 string lengths. New PTYs get new stream IDs.
+        """
+        start = self.output_offset - len(self._output_buffer)
+        if stream_id != self.stream_id or offset is None or not start <= offset <= self.output_offset:
+            return self._output_buffer, True, self.output_offset
+        return self._output_buffer[offset - start:], False, self.output_offset
 
     def write(self, data: str) -> None:
         if not self._closed:

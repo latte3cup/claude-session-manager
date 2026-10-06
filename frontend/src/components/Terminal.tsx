@@ -4,6 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import { useWebSocket, getWsUrl } from "../hooks/useWebSocket";
+import { usePageVisibility } from "../hooks/usePageVisibility";
 import { openExternal, getClipboardFilePaths, revealInFileExplorer } from "../runtime";
 import MobileKeyBar from "./MobileKeyBar";
 import FileExplorer from "./FileExplorer";
@@ -34,7 +35,7 @@ interface TerminalProps {
   visible?: boolean;
   fontSize?: number;
   onFontSizeChange?: (delta: number) => void;
-  onActivityChange?: (sessionId: string, state: ActivityState) => void;
+  onActivityChange?: (sessionId: string, state: ActivityState, replay?: boolean) => void;
   refreshNonce: number;
   isFocused: boolean;
   onFocus: () => void;
@@ -186,9 +187,8 @@ export default function Terminal({
   const innerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const activityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isProcessingRef = useRef(false);
-  const enterTimeRef = useRef(0);
+  const pageVisible = usePageVisibility();
+  const [terminalReady, setTerminalReady] = useState(false);
   const mouseDownButtonsRef = useRef(0);
   const composingRef = useRef(false);
   const sendInputRef = useRef<((data: string) => void) | null>(null);
@@ -325,6 +325,7 @@ export default function Terminal({
 
   const { sendInput, sendResize, sendMouse, status } = useWebSocket({
     url: wsUrl,
+    outputEnabled: visible && pageVisible && terminalReady,
     onMessage: (msg) => {
       if (msg.type === "output" && termRef.current) {
         // 재접속 복원 버퍼(replay)는 이어붙이면 직전 기록이 중복된다.
@@ -334,25 +335,10 @@ export default function Terminal({
         }
         termRef.current.write(msg.data);
 
-        // Only track activity after user pressed Enter
-        if (enterTimeRef.current > 0) {
-          const elapsed = Date.now() - enterTimeRef.current;
-
-          // Wait 500ms after Enter to skip echo, then mark processing
-          if (elapsed > 500 && !isProcessingRef.current) {
-            isProcessingRef.current = true;
-            onActivityChangeRef.current?.(sessionId, "processing");
-          }
-
-          // Reset done-timer on every output chunk
-          if (activityTimerRef.current) clearTimeout(activityTimerRef.current);
-          activityTimerRef.current = setTimeout(() => {
-            if (isProcessingRef.current) {
-              onActivityChangeRef.current?.(sessionId, "done");
-            }
-            isProcessingRef.current = false;
-            enterTimeRef.current = 0;
-          }, 3000);
+      } else if (msg.type === "activity") {
+        if (msg.data === "idle" || msg.data === "processing" || msg.data === "done") {
+          // Restore the badge after reconnect without notifying twice.
+          onActivityChangeRef.current?.(sessionId, msg.data, msg.replay);
         }
       } else if (msg.type === "status" && msg.data === "closed") {
         termRef.current?.write("\r\n\x1b[31m[Session closed]\x1b[0m\r\n");
@@ -464,6 +450,7 @@ export default function Terminal({
     term.write("\x1b[?1006h");
 
     termRef.current = term;
+    setTerminalReady(true);
     fitAddonRef.current = fitAddon;
     sendInputRef.current = sendInput;
     sendResizeRef.current = sendResize;
@@ -620,10 +607,6 @@ export default function Terminal({
 
       // Regular keyboard input
       sendInput(data);
-      // Detect Enter key
-      if (data.includes("\r") || data.includes("\n")) {
-        enterTimeRef.current = Date.now();
-      }
     });
 
     term.onResize(({ cols, rows }) => {
@@ -746,7 +729,6 @@ export default function Terminal({
       }
       if (idleClearTimer) clearInterval(idleClearTimer);
       if (compositionEndTimer) clearTimeout(compositionEndTimer);
-      if (activityTimerRef.current) clearTimeout(activityTimerRef.current);
       cancelScheduledHardRefresh();
       const debugStore = (
         window as Window & {
@@ -757,6 +739,7 @@ export default function Terminal({
         delete debugStore[sessionId];
       }
       termRef.current = null;
+      setTerminalReady(false);
       fitAddonRef.current = null;
       term.dispose();
     };
@@ -979,10 +962,6 @@ export default function Terminal({
   const handleKeyBarInput = useCallback(
     (data: string) => {
       sendInput(data);
-      // Detect Enter key from key bar
-      if (data.includes("\r") || data.includes("\n")) {
-        enterTimeRef.current = Date.now();
-      }
       // Refocus terminal
       termRef.current?.focus();
     },

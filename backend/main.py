@@ -38,7 +38,7 @@ from .pty_manager import pty_manager
 from .runtime_paths import get_config_open_path, get_static_dir
 from .session_manager import SessionValidationError, session_manager
 from .git_utils import GitError, run_git, is_git_repo
-from .websocket import handle_terminal_ws
+from .websocket import handle_terminal_ws, stop_terminal_streams
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -123,6 +123,7 @@ async def lifespan(app: FastAPI):
             pass
 
     pty_manager.terminate_all()
+    await stop_terminal_streams()
     await close_db()
     logger.info("Server stopped")
 
